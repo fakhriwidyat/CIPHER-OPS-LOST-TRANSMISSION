@@ -1,0 +1,45 @@
+<!doctype html><html lang="id"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>CIPHER OPS · Offline audio check</title>
+<style>body{background:#0b1020;color:#c9e5df;font:16px monospace;max-width:700px;margin:60px auto;padding:25px;line-height:1.8}button,a{font:inherit;color:#0b1020;background:#b1dfce;border:0;padding:13px;display:inline-block;margin:10px 0}audio{display:block;width:100%;margin:20px 0}pre{white-space:pre-wrap;font-size:12px}</style>
+<h1>LOST FREQUENCY / AUDIO CHECK</h1><p>Local development check. Renders the actual game sound engine with an OfflineAudioContext.</p><button id="render">RENDER 18-SECOND SAMPLE</button><p id="status" role="status">Ready. No playback starts automatically.</p><audio id="sample" controls></audio><a id="download" hidden download="cipher-ops-soundcheck.wav">DOWNLOAD WAV</a><pre id="stats"></pre>
+<script src="../js/audio.js"></script><script>
+document.querySelector('#render').addEventListener('click', async () => {
+  const button = document.querySelector('#render'); button.disabled = true;
+  try {
+    document.querySelector('#status').textContent = 'Rendering original soundtrack and effects…';
+    const sampleRate = 24000, length = 18, offline = new OfflineAudioContext(2, sampleRate * length, sampleRate);
+    let now = 0, tick = null;
+    const virtual = new Proxy(offline, { get(target, key) {
+      if (key === 'currentTime') return now;
+      if (key === 'state') return 'running';
+      if (key === 'resume' || key === 'suspend' || key === 'close') return () => Promise.resolve();
+      const value = Reflect.get(target, key, target); return typeof value === 'function' ? value.bind(target) : value;
+    }, set(target, key, value) { Reflect.set(target, key, value, target); return true; } });
+    const engine = CipherAudioDesign.createEngine({ createContext: () => virtual, setInterval: cb => { tick = cb; return 1; }, clearInterval: () => { tick = null; } });
+    engine.configure({ sound: true }); engine.unlock();
+    for (let frame = 0; frame < length * 10; frame++) {
+      now = frame / 10;
+      if (frame === 30) engine.setScene('hub');
+      if (frame > 35 && frame < 65) engine.movement({ x: 476 + (frame - 35) * 13, y: 440, moving: true });
+      if (frame === 66) engine.play('terminal');
+      if (frame === 80) engine.setScene('puzzle');
+      if (frame === 92) engine.play('error');
+      if (frame === 110) { engine.setScene('result'); engine.play('complete'); }
+      if (frame === 137) engine.play('transmission');
+      if (frame === 155) { engine.setScene('ending'); engine.play('ending'); }
+      tick?.();
+    }
+    const rendered = await offline.startRendering();
+    const channels = rendered.numberOfChannels, frames = rendered.length, bytes = new ArrayBuffer(44 + frames * channels * 2), view = new DataView(bytes);
+    function label(at, text) { for (let i = 0; i < text.length; i++) view.setUint8(at + i, text.charCodeAt(i)); }
+    label(0, 'RIFF'); view.setUint32(4, bytes.byteLength - 8, true); label(8, 'WAVE'); label(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * channels * 2, true); view.setUint16(32, channels * 2, true); view.setUint16(34, 16, true); label(36, 'data'); view.setUint32(40, bytes.byteLength - 44, true);
+    let peak = 0, sum = 0, offset = 44;
+    const data = Array.from({ length: channels }, (_, ch) => rendered.getChannelData(ch));
+    for (let i = 0; i < frames; i++) for (let ch = 0; ch < channels; ch++) { const value = data[ch][i]; peak = Math.max(peak, Math.abs(value)); sum += value * value; view.setInt16(offset, Math.round(Math.max(-1, Math.min(1, value)) * 32767), true); offset += 2; }
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' })); document.querySelector('#sample').src = url;
+    const link = document.querySelector('#download'); link.href = url; link.hidden = false;
+    document.querySelector('#stats').textContent = JSON.stringify({ frames, sampleRate, channels, peak: Number(peak.toFixed(5)), peakDb: Number((20 * Math.log10(peak)).toFixed(2)), rms: Number(Math.sqrt(sum / (frames * channels)).toFixed(5)), finite: Number.isFinite(sum), clipped: peak >= 1 }, null, 2);
+    document.querySelector('#status').textContent = 'Render complete. Rain → safehouse → steps → terminal → puzzle → restored signal.'; engine.destroy();
+  } catch (error) { document.querySelector('#status').textContent = 'Render failed: ' + error.message; }
+  button.disabled = false;
+});
+</script></html>
