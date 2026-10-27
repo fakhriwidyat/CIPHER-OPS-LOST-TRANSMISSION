@@ -1,0 +1,20 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "buildCommand": null,
+  "installCommand": null,
+  "outputDirectory": ".",
+  "functions": {
+    "api/gateway.mjs": { "maxDuration": 20 }
+  },
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/gateway?path=health" },
+    { "source": "/api/rooms/:path*", "destination": "/api/gateway?path=rooms/:path*" },
+    { "source": "/game", "destination": "/index.html" }
+  ],
+  "headers": [
+    { "source": "/api/:path*", "headers": [{ "key": "Cache-Control", "value": "no-store" }] },
+    { "source": "/js/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }] },
+    { "source": "/css/:path*", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }] }
+  ]
+}

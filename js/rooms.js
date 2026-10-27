@@ -21,7 +21,9 @@
   }
   async function request(path, body = {}, signal) {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: 'Bearer ' + session.secret } : {}) }, body: JSON.stringify(body), signal, cache: 'no-store' });
-    let data; try { data = await response.json(); } catch (_) { throw new Error('Server room belum aktif. Jalankan server game, lalu buka lewat alamat HTTP.'); }
+    let data;
+    try { data = await response.json(); }
+    catch (_) { const e = new Error(location.protocol === 'file:' ? 'Main Bareng memerlukan link game online atau server lokal.' : response.status === 404 ? 'API room belum terpasang pada hosting ini. Deploy ulang proyek beserta folder api dan vercel.json.' : 'Server room tidak memberi respons yang valid. Coba lagi sebentar.'); e.status = response.status; throw e; }
     if (!response.ok) { const e = new Error(data.error || 'Koneksi belum berhasil.'); e.status = response.status; throw e; }
     return data;
   }

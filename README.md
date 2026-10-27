@@ -34,7 +34,17 @@ Sesi pemain tersimpan di sessionStorage per tab. Menutup tab atau menghapus data
 
 Server lokal mendukung jaringan yang sama; room hilang saat server dimatikan. Untuk jaringan internet berbeda, gunakan versi hosted dari folder **online/** dengan database D1. Membagikan alamat `127.0.0.1` tidak menghubungkan perangkat lain.
 
-## Pengaturan suara
+## Deploy ke Vercel
+
+Gunakan root repository ini (`.`), Framework Preset **Other**. Konfigurasi `vercel.json` menetapkan deployment tanpa build/install dan output direktori root. Folder `api/` wajib ikut di-push: `api/gateway.mjs` adalah Vercel Function untuk API multiplayer. Jangan deploy hanya `index.html`, CSS, dan JavaScript.
+
+Alur server: browser → `/api/rooms/...` di domain Vercel yang sama → Vercel Function → server room HTTPS yang sudah tersedia → database D1. Tidak perlu membuat database baru atau menambahkan API key pada frontend. Room tidak disimpan di memori Vercel, sehingga sesi dari perangkat berbeda dan instance function yang berbeda tetap tersinkron.
+
+`/api/health` harus menjawab JSON dengan `ok: true` dan `maxPlayers: 4`. Jika endpoint ini 404, pastikan Root Directory bukan `online/`, folder `api/` dan `vercel.json` ikut pada commit, lalu redeploy. Setelah commit ke branch yang terhubung Vercel, tunggu deployment **Ready** dan refresh game. Tes lengkap: `node tests/smoke-online.mjs https://ALAMAT-VERCEL-KAMU`.
+
+Server room bawaan masih bergantung pada hosting CIPHER OPS yang sudah berjalan. Jika server itu dipindahkan nanti, ubah konstanta `DEFAULT_SERVER` di `api/gateway.mjs` dan redeploy Vercel. Gateway hanya meneruskan endpoint game yang diizinkan; cookie browser tidak diteruskan ke server room.
+
+## Mixer audio
 
 Audio mulai setelah klik, ketukan, atau tombol pertama. Sesi baru memakai audio aktif dengan volume sedang; preferensi mute yang pernah disimpan tetap dihormati. Klik ikon speaker untuk mengaktifkan atau mematikan semua suara.
 

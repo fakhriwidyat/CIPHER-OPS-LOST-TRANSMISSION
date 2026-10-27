@@ -1,0 +1,11 @@
+.git
+.openai
+.vercel
+online
+node_modules
+previews
+tests
+scripts
+server
+*.zip
+*.md

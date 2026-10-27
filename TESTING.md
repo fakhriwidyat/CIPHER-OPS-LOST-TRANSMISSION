@@ -64,3 +64,10 @@ Four real HTTP sessions on the local server completed all six missions / eight s
 
 
 Operator update deployed as version 2, source 2f0f0cdc69f4cff87b8a3aaf5d21a949a0050d59. Hosting returned succeeded. The real public HTTP test passed: four distinct operator identities and four distinct challenge kinds at every stage, all six missions / eight stages complete for 900 points; QA clients left afterward. The final hosted-browser reload encountered a browser DNS error, so no hosted visual verification is claimed for version 2; local browser visuals and live public API behavior were verified separately. The attempted viewport override did not change the QA tab width (1265 px), so mobile visual verification is not claimed for this update.
+
+## Vercel missing room API fix
+
+Reproduced on the user's Vercel branch URL: the page returned 200 HTML while /api/health returned 404 text, explaining the misleading server-not-active message. Added a zero-dependency Node Vercel Function and explicit health/room rewrites. The function uses the existing persistent D1-backed service, validates routes/origins/JSON/body size, forwards bearer sessions without cookies, and returns JSON for upstream failures/timeouts. Client diagnostics now distinguish an undeployed API from a local-file launch.
+
+64 automated tests pass, including five gateway/config checks for path routing, live room-rule integration through a fetch adapter, auth/origin handling, session/status preservation, streamed and pre-parsed bodies, request limits, rejected routes/methods, HTML upstream errors, timeouts and network failure. Official Vercel configuration schema confirms nullable build/install commands. The release archive includes api/ and Vercel config.
+

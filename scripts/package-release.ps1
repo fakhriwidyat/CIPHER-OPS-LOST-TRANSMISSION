@@ -1,10 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $files = [System.Collections.Generic.List[string]]::new()
-foreach ($name in @('assets', 'css', 'js', 'server', 'scripts', 'tests')) {
+foreach ($name in @('assets', 'css', 'js', 'api', 'server', 'scripts', 'tests')) {
     Get-ChildItem -LiteralPath (Join-Path $projectRoot $name) -Recurse -File | ForEach-Object { $files.Add($_.FullName) }
 }
-foreach ($name in @('index.html', 'README.md', 'TESTING.md')) { $files.Add((Join-Path $projectRoot $name)) }
+foreach ($name in @('index.html', 'README.md', 'TESTING.md', 'vercel.json', '.vercelignore')) { $files.Add((Join-Path $projectRoot $name)) }
 $onlineRoot = Join-Path $projectRoot 'online'
 git -C $onlineRoot ls-files | ForEach-Object { $files.Add((Join-Path $onlineRoot $_)) }
 Add-Type -AssemblyName System.IO.Compression
