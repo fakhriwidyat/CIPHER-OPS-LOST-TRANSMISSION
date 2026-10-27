@@ -1,15 +1,40 @@
 # CIPHER OPS: Lost Transmission
 
-Petualangan naratif pixel-art berbahasa Indonesia. Buka **index.html** langsung di browser modern untuk bermain. Tidak perlu instalasi, build, akun, atau internet.
+Petualangan naratif pixel-art berbahasa Indonesia. Mode solo dan local co-op bisa dibuka langsung dari **index.html** tanpa internet. Mode **Main Bareng** memakai server untuk 2–4 pemain di perangkat masing-masing.
 
 - Enam distrik, enam misi dengan fungsi linear, komposisi, invers, dan perbaikan sinyal.
 - Safehouse interaktif, pilihan dialog Aria, archive petunjuk, dan akhir campaign.
 - Tiga nyawa per misi; input kosong atau format tidak valid tidak mengurangi nyawa.
 - Skor terbaik dan bintang tiap misi disimpan otomatis melalui localStorage. Total campaign adalah jumlah skor terbaik, sehingga replay tidak menggandakan poin.
-- Local co-op: tiga ronde, Sender → transmisi → serah-terima → Receiver. Skor dan nyawa ronde dibagi bersama. Tidak menggunakan multiplayer online.
+- Local co-op: tiga ronde, Sender → transmisi → serah-terima → Receiver di satu perangkat.
+- Main Bareng: room 2–4 perangkat, kode 6 karakter, lobby siap, enam misi, nyawa/skor bersama, dan sambung ulang setelah refresh.
 - Musik ambient orisinal, hujan, dengung mesin, langkah, dan efek interaksi melalui Web Audio. Pengaturan Reduce motion mengikuti preferensi perangkat saat pertama bermain.
 
-## Suara
+## Main Bareng / 2–4 perangkat
+
+Link online: https://cipher-ops-lost-transmission.wavycat8.chatgpt.site
+
+1. Semua membuka link game online dan memilih **MAIN BARENG**.
+2. Host mengisi callsign, menekan **BUAT ROOM**, lalu **SALIN UNDANGAN**.
+3. Teman mengisi callsign berbeda dan kode 6 karakter, lalu **GABUNG ROOM**.
+4. Pilih karakter yang belum dipakai teman. Semua menekan **SAYA SIAP**, lalu host menekan **MULAI MISI**. Bisa mulai dengan dua atau tiga pemain.
+5. Kerjakan tugas sesuai operator. Setelah semua kontribusi selesai, tahap selanjutnya terbuka. Host melanjutkan ke distrik berikutnya.
+
+Empat karakter memiliki sprite, perlengkapan, portrait, dan peran berbeda: **KAI** (kurir sinyal, scarf cyan), **NYX** (analis sandi, hood dan visor ungu), **BOLT** (teknisi, kacamata dan lengan mekanik), dan **IRIS** (navigator, mantel hijau dan pemindai). Pilihan karakter unik per room dan terkunci saat misi berjalan; mengganti karakter di lobby membatalkan kesiapanmu.
+
+Setiap tahap memberikan empat jenis tugas berbeda jika tim lengkap. Ada enkripsi, dekripsi, pemilihan paket, komposisi, perbaikan log, dan kalibrasi fungsi dari dua pengukuran. Huruf, koefisien, posisi kesalahan, serta urutan pilihan berubah antar-room dan sesi baru. Paket tetap stabil saat refresh atau retry. Tujuan distrik dan skor tetap dibagi bersama, dengan progres kontribusi tiap anggota ditampilkan di layar. Pembahasan hasil disesuaikan dengan tugas pemain.
+
+Room lama yang sudah menjalankan misi mempertahankan soal lamanya. Untuk mencoba peran dan tugas baru, refresh semua perangkat lalu buat room baru atau buka lobby baru.
+
+Tiga nyawa dibagi per misi. Jawaban salah mengurangi satu nyawa; format kosong/salah tidak. Hint mengurangi 25 poin tim. Setiap distrik memberi maksimal 150 poin tim; total enam distrik maksimal 900. Validasi dan pergantian tahap ditentukan server.
+
+Refresh pada tab yang sama menyambungkan kembali pemain. Setelah 18 detik tanpa kabar, pemain dianggap terputus dan misi dijeda. Host otomatis berpindah ke anggota yang masih tersambung. Host dapat mengeluarkan pemain terputus, tetapi misi tetap membutuhkan dua anggota. Pemain baru hanya masuk di lobby. **Buka lobby baru** mereset progres tim untuk sesi baru.
+
+Sesi pemain tersimpan di sessionStorage per tab. Menutup tab atau menghapus data sesi dapat menghilangkan akses ke slot lama. Room kedaluwarsa setelah enam jam tanpa aktivitas. Campaign solo terpisah.
+
+Server lokal mendukung jaringan yang sama; room hilang saat server dimatikan. Untuk jaringan internet berbeda, gunakan versi hosted dari folder **online/** dengan database D1. Membagikan alamat `127.0.0.1` tidak menghubungkan perangkat lain.
+
+## Pengaturan suara
 
 Audio mulai setelah klik, ketukan, atau tombol pertama. Sesi baru memakai audio aktif dengan volume sedang; preferensi mute yang pernah disimpan tetap dihormati. Klik ikon speaker untuk mengaktifkan atau mematikan semua suara.
 
@@ -29,9 +54,9 @@ Soal matematika dibuka melalui **Central Terminal**, lalu **Establish Connection
 
 ## Menjalankan preview dan pengujian
 
-Jika Node.js tersedia, jalankan `node scripts/serve.cjs`, lalu buka http://127.0.0.1:4173. Ini hanya kemudahan untuk development; server tidak dibutuhkan untuk bermain.
+Jika Node.js tersedia, jalankan `node scripts/serve.cjs`, lalu buka http://127.0.0.1:4173. Server diperlukan untuk Main Bareng, sedangkan solo bisa dimainkan langsung dari file.
 
-Jalankan semua tes dengan `node --test tests/math.cjs tests/game.cjs tests/exploration.cjs tests/controller.cjs tests/audio.cjs`. Catatan pengujian browser ada di `TESTING.md`.
+Jalankan tes dengan `node --test tests/math.cjs tests/game.cjs tests/exploration.cjs tests/controller.cjs tests/audio.cjs tests/rooms.mjs` (Node 24 dipakai untuk tes SQLite). `node tests/smoke-online.mjs http://127.0.0.1:4175` menguji empat sesi HTTP pada hasil build server lokal. Catatan pengujian browser ada di `TESTING.md`.
 
 ## Struktur
 

@@ -5,6 +5,10 @@
     runner: { outline: '#081321', hair: '#142238', hairLight: '#36485f', skin: '#dda98b', skinLight: '#f2c5a0', skinShade: '#956b65', cloth: '#284559', clothLight: '#52778a', clothShade: '#172d40', accent: '#70e8e4', accentDark: '#2a899a', pants: '#19283e', pantsLight: '#36485d', boots: '#0b1628', sole: '#6d8b98', metal: '#8faab4', warm: '#e7ad6b' },
     aria: { outline: '#101324', hair: '#392c4c', hairLight: '#a37194', skin: '#dda99c', skinLight: '#f3c8b1', skinShade: '#9e6f7b', cloth: '#b69a7c', clothLight: '#ead0a4', clothShade: '#796b69', accent: '#b9e9dd', accentDark: '#6aaeb0', pants: '#34324c', pantsLight: '#62536a', boots: '#171b30', sole: '#a58f99', metal: '#c1b8bd', warm: '#d69fc2' }
   };
+  palettes.kai = { ...palettes.runner, hair: '#1b2940', hairLight: '#536279', cloth: '#29445b', clothLight: '#68849a', accent: '#5ee5fa' };
+  palettes.nyx = { ...palettes.runner, hair: '#d1d1e1', hairLight: '#f4edff', skin: '#bd9caa', skinLight: '#e7c6c4', cloth: '#493761', clothLight: '#88719d', clothShade: '#292238', accent: '#c0a0ff', accentDark: '#765ca6', pants: '#242039', pantsLight: '#544564' };
+  palettes.bolt = { ...palettes.runner, hair: '#522c26', hairLight: '#b16840', skin: '#a76c4e', skinLight: '#d89e6b', skinShade: '#754b3d', cloth: '#9b613d', clothLight: '#e1a263', clothShade: '#543f32', accent: '#ffd587', accentDark: '#98703f', pants: '#343c42', pantsLight: '#667678', metal: '#b5c4bf' };
+  palettes.iris = { ...palettes.runner, hair: '#203c37', hairLight: '#648473', skin: '#b57d63', skinLight: '#e4b08a', skinShade: '#7e5c53', cloth: '#346354', clothLight: '#7ba78b', clothShade: '#1f3c39', accent: '#a9f0b6', accentDark: '#54856c', pants: '#263936', pantsLight: '#516963' };
   function draw(target, type, pose = {}) {
     const p = palettes[type] || palettes.runner;
     const scale = pose.scale || 1;
@@ -102,11 +106,38 @@
     const ear = side ? 14 : back ? 22 : 9;
     rect(ear, 11, 4, 6, 'outline'); rect(ear + 1, 12, 2, 3, 'metal'); rect(ear + 1, 12, 1, 2, 'accent');
     if (!back) { rect(ear + 2, 16, 4, 1, 'metal'); rect(ear + 5, 15, 2, 2, 'outline'); }
+    // Four operators have different silhouettes and equipment, beyond palette swaps.
+    if (type === 'kai') {
+      rect(11, 2, 8, 3, 'hair'); rect(17, 3, 7, 2, 'hairLight');
+      rect(side ? 7 : 6, 20, 4, 11, 'accentDark'); rect(side ? 4 : 4, 28, 6 + (phase % 2), 3, 'accent');
+      if (!back) { rect(20, 25, 4, 7, 'outline'); rect(21, 26, 2, 4, 'accentDark'); rect(22, 23, 1, 3, 'metal'); }
+    }
+    if (type === 'nyx') {
+      rect(7, 5, 18, 13, 'clothShade'); rect(10, 2, 12, 4, 'cloth'); rect(8, 4, 16, 3, 'clothLight');
+      rect(7, 15, 4, 8, 'cloth'); rect(23, 9, 3, 13, 'clothLight');
+      if (!back) { rect(11, 8, 12, 10, 'skinShade'); rect(13, 9, 9, 8, 'skin'); rect(10, 7, 13, 3, 'hair'); rect(12, 8, 3, 4, 'hairLight'); rect(11, 12, 13, 3, 'outline'); rect(12, 12, 11, 2, 'accent'); rect(18, 12, 2, 1, '#f3ecff'); rect(16, 17, 4, 1, 'skinShade'); }
+      rect(7, 28, 4, 10, 'clothShade'); rect(23, 29, 3, 9, 'cloth');
+      if (!back) { rect(13, 24, 6, 7, 'outline'); rect(14, 25, 4, 4, 'accentDark'); rect(15, 26, 2, 1, 'accent'); }
+    }
+    if (type === 'bolt') {
+      rect(4, 20, 24, 5, 'outline'); rect(5, 21, 22, 3, 'clothLight');
+      rect(24, 23, 5, 12, 'metal'); rect(25, 24, 3, 5, 'pantsLight'); rect(25, 30, 4, 2, 'outline'); rect(25, 32, 4, 3, 'metal');
+      rect(9, 6, 15, 3, 'clothShade'); rect(8, 8, 17, 2, 'outline');
+      if (!back) { rect(10, 8, 6, 4, 'metal'); rect(18, 8, 6, 4, 'metal'); rect(11, 9, 4, 2, 'accentDark'); rect(19, 9, 4, 2, 'accent'); rect(14, 16, 7, 2, 'hair'); }
+      rect(10, 23, 2, 9, 'accentDark'); rect(20, 23, 2, 9, 'accentDark');
+      rect(5, 32, 4, 8, 'outline'); rect(6, 33, 2, 6, 'metal'); rect(4, 33, 5, 2, 'metal');
+    }
+    if (type === 'iris') {
+      rect(back ? 20 : 24, 4, 5, 7, 'hair'); rect(back ? 22 : 26, 9, 4, 13, 'hair'); rect(back ? 23 : 27, 13, 2, 7, 'hairLight');
+      rect(9, 3, 14, 4, 'clothShade'); rect(8, 6, 16, 2, 'clothLight'); rect(11, 4, 9, 1, 'accent');
+      rect(5, 29, 4, 10, 'cloth'); rect(23, 30, 4, 9, 'clothShade');
+      if (!back) { rect(9, 23, 14, 2, 'clothShade'); rect(18, 25, 2, 9, 'clothLight'); rect(24, 27, 7, 8, 'outline'); rect(25, 28, 5, 5, 'accentDark'); rect(26, 29, 3, 2, 'accent'); rect(29, 24, 1, 4, 'metal'); }
+    }
     target.restore(); target.restore();
   }
   function portrait(type = 'aria', createCanvas) {
     const sheet = createCanvas(128, 144), p = sheet.getContext('2d');
-    p.fillStyle = type === 'aria' ? '#30273e' : '#162d40'; p.fillRect(0, 0, 128, 144);
+    p.fillStyle = palettes[type]?.clothShade || (type === 'aria' ? '#30273e' : '#162d40'); p.fillRect(0, 0, 128, 144);
     p.fillStyle = '#6faeb111'; for (let y = 0; y < 144; y += 8) p.fillRect(0, y, 128, 1);
     p.fillStyle = '#8ecbc72a'; p.fillRect(11, 14, 1, 95); p.fillRect(11, 109, 85, 1);
     if (type === 'null') {

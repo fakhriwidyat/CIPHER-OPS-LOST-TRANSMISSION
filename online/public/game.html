@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1020">
+  <meta name="description" content="Novaris, 2149. Pulihkan jaringan, pecahkan sandi, dan temukan siapa yang bersembunyi di balik NULL. Sebuah petualangan pixel-art interaktif.">
+  <title>CIPHER OPS — Lost Transmission</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/exploration.css">
+  <link rel="stylesheet" href="css/audio.css">
+  <link rel="stylesheet" href="css/rooms.css">
+  <script src="js/data.js" defer></script>
+  <script src="js/characters.js" defer></script>
+  <script src="js/exploration.js" defer></script>
+  <script src="js/audio.js" defer></script>
+  <script src="js/art.js" defer></script>
+  <script src="js/rooms.js" defer></script>
+  <script src="js/game.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <button class="brand" data-action="home" aria-label="CIPHER OPS, menu utama">
+        <svg viewBox="0 0 28 28" aria-hidden="true"><path d="M11 2h6v5h5v5h5v5h-5v5h-5v5h-6v-5H6v-5H1v-5h5V7h5z" fill="currentColor"/><path d="M11 11h6v6h-6z" fill="#0b1020"/></svg>
+        <span>CIPHER<span class="brand-ops"> OPS</span></span><span class="brand-divider"></span><span class="brand-sub">LOST TRANSMISSION</span>
+      </button>
+      <div class="top-controls"><span class="local-indicator"><i></i> LOCAL SESSION</span><button id="sound-toggle" class="icon-button" data-action="sound" aria-label="Aktifkan suara" title="Suara"></button><button class="icon-button" data-action="settings" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 3h6v3h3v3h3v6h-3v3h-3v3H9v-3H6v-3H3V9h3V6h3zM9 9v6h6V9z"/></svg></button></div>
+    </header>
+    <main id="game" tabindex="-1" aria-label="CIPHER OPS game"></main>
+    <footer class="shell-footer"><span><span class="tiny-cross">+</span> AN INDEPENDENT SIGNAL FROM NOVARIS</span><span>EST. 2149 <b> / </b> CHAPTER 01</span></footer>
+  </div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

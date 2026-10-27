@@ -98,10 +98,11 @@
     window.PixelArt.mount(game.querySelector('canvas'), art, { restored: campaign?.completed.length || 0, reduced: settings.reducedMotion, interactive: screen === 'hub', actor: hubController?.position() || hubPosition, callsign: campaign?.callsign || 'RUNNER' });
   }
   function navigate(next, options = {}) {
+    if (screen === 'online' && next !== 'online') window.CipherRooms?.destroy();
     if (hubController) { hubPosition = hubController.position(); hubController.destroy(); hubController = null; }
     clearTimeout(sceneTimer); screen = next;
     if (next !== 'dialogue') dialogueState = null;
-    const renderers = { menu: menu, intro: renderIntro, hub, map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, ending, dialogue: renderDialogue };
+    const renderers = { online: () => window.CipherRooms?.mount({ game, scene, mount, sound, callsign: campaign?.callsign, confirm: confirmModal, exit: () => navigate('menu') }), menu: menu, intro: renderIntro, hub, map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, ending, dialogue: renderDialogue };
     (renderers[next] || menu)(options);
     window.CipherAudio?.setScene(screen === 'intro' && currentArt === 'hub' ? 'dialogue' : screen);
     if (next === 'transmission') sound('transmission');
@@ -120,6 +121,7 @@
           ${action('new', '<span>NEW GAME</span><span class="keycap">↵</span>', 'button primary wide')}
           ${action('continue', `<span>CONTINUE</span><small>${campaign ? escapeHTML(campaign.callsign) + ' / ' + campaign.completed.length + ' OF 6' : 'NO SAVED SIGNAL'}</small>`, 'button ghost wide', campaign ? '' : 'disabled')}
           ${action('coopSetup', icons.coop + 'LOCAL CO-OP<span>2 PLAYERS</span>', 'coop-link')}
+          ${action('online', icons.coop + 'MAIN BARENG<span>2–4 DEVICE</span>', 'coop-link room-menu-link')}
         </nav>
       </div>
       <div class="distress"><i></i> SIGNAL LOST_</div><div class="frequency">FREQ. 140.85</div>
@@ -388,7 +390,8 @@
   }
   function leaveCoop() { confirmModal('CLOSE TEAM CHANNEL?', 'Sesi co-op ini akan berakhir. Campaign solo tetap tersimpan.', 'KELUAR', () => { coop = null; run = null; navigate('menu'); }); }
   const handlers = {
-    home: () => { if (run?.coop && !run.done) leaveCoop(); else navigate('menu'); }, menu: () => navigate('menu'), new: startNew,
+    online: () => navigate('online'),
+    home: () => { if (screen === 'online' && window.CipherRooms?.hasRoom()) window.CipherRooms.leave(); else if (run?.coop && !run.done) leaveCoop(); else navigate('menu'); }, menu: () => navigate('menu'), new: startNew,
     continue: () => { if (!campaign) return; coop = null; run = null; if (campaign.active) resume(); else navigate('hub'); },
     introNext: () => { introIndex = Math.min(introIndex + 1, intro.length - 1); navigate('intro'); },
     skipIntro: () => { introIndex = intro.length - 1; navigate('intro'); }, hub: () => navigate('hub'), map: () => navigate('map'),
@@ -449,5 +452,7 @@
   document.addEventListener('pointerdown', () => window.CipherAudio?.unlock(), { passive: true });
   document.addEventListener('keydown', event => { window.CipherAudio?.unlock(); if (event.key === 'Escape' && !modal.open && screen !== 'menu') showSettings(); });
   document.addEventListener('visibilitychange', () => window.CipherAudio?.setVisible(!document.hidden));
+  window.addEventListener?.('cipher-room-status', event => { const indicator = document.querySelector('.local-indicator'); if (indicator) indicator.innerHTML = '<i></i> ' + (event.detail ? 'TEAM SESSION / LIVE' : 'LOCAL SESSION'); });
   load(); if (window.CipherAudio) { window.CipherAudio.setStatusListener(audioStatus); window.CipherAudio.setVisible(!document.hidden); } settingsUI(); navigate('menu');
+  if (window.CipherRooms && (/^\?room=[A-Z2-9]{6}$/.test(window.location?.search || '') || window.CipherRooms.hasSavedSession())) navigate('online');
 })();

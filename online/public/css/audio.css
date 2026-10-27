@@ -1,0 +1,18 @@
+/* A compact in-world mixer. Audio settings remain separate from campaign saves. */
+#sound-toggle { display: flex; width: auto; gap: 7px; }
+.sound-state-label { font: 8px var(--mono); letter-spacing: .8px; color: #85a7b0; white-space: nowrap; }
+#sound-toggle[data-audio-state="running"] .sound-state-label { color: #acd5c1; }
+.audio-mixer { padding: 17px 0 9px; border-bottom: 1px solid #2d4358; }
+.audio-level { display: grid; grid-template-columns: 73px 1fr 37px; gap: 15px; align-items: center; margin: 0 0 16px; font: 8px var(--mono); color: #91b4bf; letter-spacing: .8px; }
+.audio-level output { color: #c8ded9; text-align: right; font-size: 9px; }
+.audio-level input { width: 100%; margin: 0; accent-color: #a6d7ca; height: 19px; cursor: pointer; appearance: none; background: transparent; }
+.audio-level input::-webkit-slider-runnable-track { height: 3px; background: #2b4b5c; border: 0; }
+.audio-level input::-webkit-slider-thumb { appearance: none; width: 9px; height: 13px; margin-top: -5px; background: #b1dfce; border: 1px solid #d5f2e1; box-shadow: 2px 2px #081624; border-radius: 0; }
+.audio-level input::-moz-range-track { height: 3px; background: #2b4b5c; }
+.audio-level input::-moz-range-thumb { width: 9px; height: 13px; background: #b1dfce; border: 1px solid #d5f2e1; border-radius: 0; }
+.audio-preview-row { display: flex; align-items: center; gap: 16px; padding: 17px 0 4px; }
+.audio-preview { min-height: 34px; font-size: 8px; padding: 8px 11px; gap: 8px; flex-shrink: 0; }
+.audio-preview svg { width: 14px; height: 14px; }
+.audio-status { font: 7px var(--mono); color: #82b3ad; line-height: 1.9; letter-spacing: .6px; }
+@media (max-width: 800px) { .sound-state-label { display: none; } #sound-toggle { width: 30px; justify-content: center; } }
+@media (max-width: 480px) { .audio-level { grid-template-columns: 66px 1fr 32px; gap: 10px; font-size: 7px; } .audio-preview-row { align-items: flex-start; gap: 12px; } .audio-status { font-size: 6px; } }

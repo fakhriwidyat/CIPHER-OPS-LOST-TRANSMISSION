@@ -1,0 +1,143 @@
+/* Exploration controls and character interaction. World coordinates stay 960 × 540. */
+.exploration-scene .scene-canvas {
+  object-fit: fill;
+  touch-action: none;
+}
+.exploration-scene { cursor: crosshair; }
+.exploration-scene button { cursor: pointer; }
+.exploration-scene .hub-overlay { top: 101px; }
+.exploration-scene .hub-overlay > p:last-of-type { margin-top: 3px; }
+.exploration-help {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 21px;
+  margin-top: 14px;
+  color: #6f94a7;
+  font: 8px var(--mono);
+  letter-spacing: .8px;
+}
+.exploration-help > span { display: flex; align-items: center; gap: 6px; }
+.exploration-help kbd {
+  background: #102337b8;
+  border: 1px solid #3e5e70;
+  color: #b4d3d6;
+  padding: 4px 6px;
+  font: inherit;
+  letter-spacing: .6px;
+}
+.exploration-help .click-help { color: #6f94a7; }
+.exploration-scene .hotspot { transition: background .18s, border-color .18s; }
+.exploration-scene .hotspot.terminal { left: 28%; top: 39%; width: 24%; height: 23%; }
+.exploration-scene .hotspot.map { left: 54%; top: 26%; width: 23%; height: 26%; }
+.exploration-scene .hotspot.archive { left: 14%; top: 32%; width: 11%; height: 33%; }
+.exploration-scene .hotspot.aria { left: 70%; top: 53%; width: 8%; height: 17%; }
+.exploration-scene .hotspot::before { content: '↗'; color: #b6d4d5; background: #173245; }
+.exploration-scene .hotspot-label { pointer-events: none; }
+.exploration-scene .hotspot-label small {
+  display: block;
+  color: #8caeac;
+  font-size: 6px;
+  letter-spacing: 1.2px;
+  margin-top: 5px;
+  line-height: 1.3;
+}
+.exploration-scene .hotspot.in-range .hotspot-label {
+  border-color: #99d9c7;
+  background: #18363e;
+  box-shadow: 0 0 20px #6ce1bf0d;
+  color: #e3f4e8;
+}
+.exploration-scene .hotspot.in-range::before { content: 'E'; border-color: #91d1bd; color: #cbf8dc; font-size: 11px; }
+.world-interaction {
+  position: absolute;
+  z-index: 10;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  max-width: calc(100% - 35px);
+}
+.interact-button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 275px;
+  padding: 12px 16px 12px 12px;
+  background: #0d2332f2;
+  border: 1px solid #7bbaaf;
+  box-shadow: 3px 4px 0 #050e1c;
+  text-align: left;
+}
+.interact-button:hover { background: #1b3c45; border-color: #b1ebd2; }
+.interact-button kbd {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 30px;
+  height: 32px;
+  background: #b7e1ce;
+  color: #102e37;
+  box-shadow: inset 0 -3px #82b5a8;
+  font: bold 14px var(--mono);
+}
+.interact-button > span { flex: 1; }
+.interact-button strong { display: block; font: 9px var(--mono); letter-spacing: 1px; color: #d4eade; }
+.interact-button small { display: block; font-size: 11px; color: #8cb5b8; margin-top: 6px; }
+.interact-button svg { width: 17px; color: #97cebd; }
+.touch-movement { display: none; }
+.portrait img { width: 131px; }
+.operator-portrait img { width: 86px; height: 97px; }
+@media (max-width: 800px) {
+  .exploration-scene .hub-overlay { top: 92px; left: 24px; right: 24px; }
+  .exploration-help { gap: 9px 15px; margin-top: 11px; font-size: 7px; letter-spacing: .3px; }
+  .exploration-help .click-help { width: 100%; }
+  .touch-movement {
+    position: absolute;
+    display: grid;
+    grid-template: repeat(3, 29px) / repeat(3, 29px);
+    gap: 3px;
+    bottom: 113px;
+    left: 23px;
+    z-index: 11;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+  }
+  .touch-movement button {
+    border: 1px solid #496d7d;
+    background: #112b3ce8;
+    color: #b4d8d4;
+    padding: 0;
+    font: 17px var(--mono);
+    min-width: 29px;
+    min-height: 29px;
+    touch-action: none;
+  }
+  .touch-movement button:active { background: #a2d8cd; color: #0c2834; }
+  .touch-movement [data-move="up"] { grid-area: 1 / 2; }
+  .touch-movement [data-move="left"] { grid-area: 2 / 1; }
+  .touch-movement [data-move="right"] { grid-area: 2 / 3; }
+  .touch-movement [data-move="down"] { grid-area: 3 / 2; }
+  .touch-movement > span { grid-area: 2 / 2; display: grid; place-items: center; color: #5a929e; font: 14px var(--mono); background: #102537a8; }
+  .world-interaction { bottom: 122px; left: auto; right: 19px; transform: none; max-width: calc(100% - 137px); }
+  .interact-button { min-width: 0; padding: 10px; gap: 9px; width: 100%; }
+  .interact-button strong { font-size: 7px; letter-spacing: .5px; line-height: 1.6; }
+  .interact-button small { font-size: 10px; line-height: 1.5; margin-top: 2px; }
+  .interact-button svg { display: none; }
+  .interact-button kbd { width: 26px; height: 29px; font-size: 12px; }
+  .portrait img { width: 100px; }
+}
+@media (max-width: 480px) {
+  .exploration-scene .hub-overlay { left: 18px; right: 18px; top: 90px; }
+  .exploration-scene .hub-overlay > p:last-of-type { font-size: 10px; max-width: 235px; line-height: 1.7; }
+  .exploration-help { font-size: 6px; gap: 8px 12px; }
+  .exploration-help kbd { padding: 3px 4px; }
+  .exploration-scene .hotspot.aria { width: 13%; left: 67.5%; }
+  .exploration-scene .hotspot-label { font-size: 6px; width: 78px; padding: 6px 5px; }
+  .exploration-scene .hotspot-label small { font-size: 5px; letter-spacing: .5px; margin-top: 4px; }
+  .exploration-scene .hotspot.terminal .hotspot-label { width: 100px; }
+  .exploration-scene .hotspot.archive .hotspot-label { width: 65px; }
+  .touch-movement { left: 17px; bottom: 119px; }
+  .world-interaction { right: 13px; bottom: 128px; max-width: calc(100% - 127px); }
+  .portrait img { width: 87px; }
+}

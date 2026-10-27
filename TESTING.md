@@ -43,3 +43,24 @@ New screenshots: `previews/interactive-safehouse.png`, `previews/interactive-mob
 The actual Web Audio graph was rendered through a browser OfflineAudioContext using `tests/audio-render.html`: 18 seconds, stereo, 24,000 Hz, 432,000 frames. Peak 0.20513 (−13.76 dBFS), RMS 0.03250, all finite, no clipping. The sample moves through rain, Safehouse, footsteps, terminal access, puzzle, error feedback, completion, transmission, and ending. Saved as `previews/soundcheck.wav`. These measurements verify the rendered signal; no listening assessment is claimed.
 
 Browser checks on the separate localhost QA origin verified `ready` before a gesture and `running` after Continue, scene labels changing to Safehouse / Mission Standby / Terminal Focus / Signal Restored, independent music-slider changes from 36 to 35 and back, Test Sound, mute and unmute, and a wrong/correct puzzle submission with audio enabled. Browser console collection returned no entries. `previews/audio-settings.png` shows the mixer. The old 127.0.0.1 campaign was not used for destructive tests.
+
+## Multiplayer / four separate sessions
+
+52 automated tests pass, including 14 room/API tests: four-player capacity, unique seats, readiness and host permissions, all eight stages across six missions, malformed answers, idempotent submissions, shared hint penalties, failure/retry, stale-stage rejection, disconnect/pause/reconnect, host migration, removing disconnected members, two-player minimum, session secrecy, expiry, and concurrent updates against both memory and a real SQLite D1 adapter.
+
+The built production Worker was started locally with its D1 binding. tests/smoke-online.mjs used four independent HTTP bearer sessions to complete all six missions and eight stages for 900 team points, then left the QA room. This exercises the real HTTP routes and Worker/D1 runtime, not just mocks.
+
+Browser QA used four independent tabs (ECHO, NOVA, VEGA, LUNA): invitation join, ready/start, four distinct packets (HI/GO/UP/OK), empty-answer validation without lost hearts, automatic waiting at 1/4 through 3/4, and synchronized completion at 4/4 for 150 points. Refresh restored the same player and result. Screenshot: previews/multiplayer-four-players.png. These are independent browser sessions on one computer; no claim of a physical four-device test is made.
+
+
+Published version 1 at https://cipher-ops-lost-transmission.wavycat8.chatgpt.site, source 406805c29416b777ec1f104322a9b0410f408bf8. Hosting returned succeeded. The same real HTTP smoke test passed on the public URL: four bearer sessions completed all six missions / eight stages for 900 points, then left the QA room. Public browser loaded the title menu and Main Bareng entry successfully. At 390 px width, document clientWidth and scrollWidth both measured 375 px (no horizontal overflow). Browser warning/error log collection was empty. Added previews/online-multiplayer.png and previews/multiplayer-mobile.png.
+
+
+## Unique operator and asymmetric mission update
+
+59 automated tests pass. New checks cover unique role selection, readiness reset, active-mission role locking, simultaneous claims with both memory and SQLite/D1 CAS, four distinct task kinds in every stage, one shared objective, deterministic reconnect/retry, regenerated new sessions, 30 seeded campaigns with valid unique choices, hidden calibration coefficients, and active legacy-room compatibility.
+
+Four real HTTP sessions on the local server completed all six missions / eight stages with distinct operator identities and task kinds at every stage, for 900 team points. Browser QA selected BOLT, joined a second player who received the free KAI role, verified the occupied BOLT card was unavailable, and completed a repair task and encryption task toward the same 150-point result. Continued through mission 2 (repair versus packet selection), then validated mission 3 calibration with samples (2,18) and (4,28), accepting a=5 and b=8. Personalized debrief displayed the actual repair calculation. The four sprites have distinct equipment and silhouettes, with idle/blink/wave animation and cached portraits. Screenshots: operator-selection.png and operator-calibration.png.
+
+
+Operator update deployed as version 2, source 2f0f0cdc69f4cff87b8a3aaf5d21a949a0050d59. Hosting returned succeeded. The real public HTTP test passed: four distinct operator identities and four distinct challenge kinds at every stage, all six missions / eight stages complete for 900 points; QA clients left afterward. The final hosted-browser reload encountered a browser DNS error, so no hosted visual verification is claimed for version 2; local browser visuals and live public API behavior were verified separately. The attempted viewport override did not change the QA tab width (1265 px), so mobile visual verification is not claimed for this update.
