@@ -71,3 +71,5 @@ Reproduced on the user's Vercel branch URL: the page returned 200 HTML while /ap
 
 64 automated tests pass, including five gateway/config checks for path routing, live room-rule integration through a fetch adapter, auth/origin handling, session/status preservation, streamed and pre-parsed bodies, request limits, rejected routes/methods, HTML upstream errors, timeouts and network failure. Official Vercel configuration schema confirms nullable build/install commands. The release archive includes api/ and Vercel config.
 
+
+2026-10-30: Main Bareng v3 menambah 30 tahap dan pengacakan enam jenis tugas. 66 tes lulus, termasuk seluruh 30 tahap empat pemain, perbedaan empat tugas tiap tahap, tidak ada jenis berulang berturut-turut, 80 seed, dan kompatibilitas v2.

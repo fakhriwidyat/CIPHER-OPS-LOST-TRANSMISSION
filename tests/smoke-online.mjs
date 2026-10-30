@@ -24,7 +24,7 @@ try {
   await Promise.all(clients.map(secret => command(secret, 'ready', { ready: true })));
   latest = await command(clients[0], 'start');
   for (let mission = 0; mission < 6; mission++) {
-    const stages = mission === 2 || mission === 5 ? 2 : 1;
+    const stages = latest.room.stages;
     for (let stage = 0; stage < stages; stage++) {
       const states = await Promise.all(clients.map(secret => command(secret, 'poll')));
       const stageId = states[0].room.stageId;
@@ -37,7 +37,7 @@ try {
     if (mission < 5) latest = await command(clients[0], 'next');
   }
   assert.equal(latest.room.total, 900); assert.equal(latest.room.phase, 'finished'); assert.equal(latest.room.players.length, 4);
-  console.log('PASS: four HTTP sessions completed all 6 missions / 8 stages, 900 team points; backend=' + origin);
+  console.log('PASS: four HTTP sessions completed all 6 missions / all generated stages, 900 team points; backend=' + origin);
 } finally {
   if (code) for (const secret of clients) try { await command(secret, 'leave'); } catch (_) {}
 }

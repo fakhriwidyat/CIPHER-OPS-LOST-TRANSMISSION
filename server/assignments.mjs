@@ -35,7 +35,13 @@ export const TEAM_GOALS = [
 function randomFor(room, role) {
   let state = Number(room.seed || 1) >>> 0;
   for (const c of `${room.round || 0}:${room.mission}:${room.stage}:${role}`) state = Math.imul(state ^ c.charCodeAt(0), 16777619) >>> 0;
-  return max => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state % max; };
+  if (room.challengeVersion < 3) return max => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state % max; };
+  return max => {
+ state = (state + 0x6D2B79F5) >>> 0;
+ let t = Math.imul(state ^ state >>> 15, state | 1);
+ t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+ return Math.floor(((t ^ t >>> 14) >>> 0) / 4294967296 * max);
+};
 }
 const encrypt = (word, fn) => [...word].map(c => (c.charCodeAt(0) - 64) * fn.a + fn.b);
 function shuffledOptions(correct, wrong, rand) {
@@ -43,12 +49,23 @@ function shuffledOptions(correct, wrong, rand) {
   for (let i = options.length - 1; i > 0; i--) { const j = rand(i + 1); [options[i], options[j]] = [options[j], options[i]]; }
   return options;
 }
+export const stageCount = room => room.challengeVersion >= 3 ? [4, 4, 5, 5, 6, 6][room.mission] : (room.mission === 2 || room.mission === 5 ? 2 : 1);
+function kindFor(room, index) {
+ if (room.challengeVersion < 3) return taskKinds[room.mission][room.stage][index];
+ const rand = randomFor({ ...room, stage: 0 }, 'task-order');
+ const kinds = ['encode', 'decode', 'repair', 'sequence', 'composition', 'calibrate'];
+ for (let n = kinds.length - 1; n > 0; n--) {
+  const j = rand(n + 1); [kinds[n], kinds[j]] = [kinds[j], kinds[n]];
+ }
+ return kinds[(index + room.stage) % kinds.length];
+}
 export function assignmentFor(room, player) {
   const role = operatorFor(player), i = OPERATORS.indexOf(role), m = room.mission, s = room.stage;
-  const rand = randomFor(room, role.id), kind = taskKinds[m][s][i];
-  const fn = { a: 2 + rand(m < 2 ? 3 : 5), b: 1 + rand(8) };
-  const plain = m === 0 && i === 0 ? ['HI', 'GO', 'UP', 'OK'][rand(4)] : (m < 3 ? words : longWords)[rand(m < 3 ? words.length : longWords.length)];
-  const task = tasks[m][i] + (s > 0 ? ' / verifikasi akhir' : '');
+  const rand = randomFor(room, role.id), kind = kindFor(room, i);
+  const fn = { a: 2 + rand(m < 2 ? 3 : 5), b: 1 + rand(room.challengeVersion >= 3 ? 20 : 8) };
+  const pool = [...(m < 3 ? words : longWords), ...(room.challengeVersion >= 3 ? (m < 3 ? ['BAY', 'JET', 'OWL', 'ASH', 'ION', 'HUB', 'LAB', 'RAM'] : ['BEACON', 'SIGNAL', 'CIPHER', 'RELAY', 'VECTOR', 'ORBIT', 'PULSE', 'NORTH', 'RADAR', 'TRACE']) : [])];
+  const plain = m === 0 && i === 0 ? ['HI', 'GO', 'UP', 'OK'][rand(4)] : pool[rand(pool.length)];
+  const task = tasks[m][i] + (s > 0 ? ' / paket ' + (s + 1) : '');
   const base = { kind, fn, task, roleId: role.id, contribution: ['Paket transmisi', 'Pesan terdekripsi', 'Relai stabil', 'Rute terverifikasi'][i] };
   if (kind === 'encode') return { ...base, type: 'ENCRYPT / OUTBOUND', plain, objective: `Suar tim membutuhkan kode ${plain}. Ubah huruf ke angka, hitung sandinya, lalu kirim.`, hint: `Huruf pertama ${plain[0]} = ${plain.charCodeAt(0) - 64}. Kalikan ${fn.a}, lalu tambah ${fn.b}. Ulangi untuk setiap huruf.` };
   if (kind === 'decode') return { ...base, type: 'DECRYPT / INBOUND', cipher: encrypt(plain, fn), objective: 'Pesan masuk berisi bagian petunjuk tim. Balikkan fungsi untuk membaca kata yang tersembunyi.', hint: `Kurangi setiap sandi dengan ${fn.b}, lalu bagi ${fn.a}. A=1 sampai Z=26. Kerjakan satu angka per huruf.` };

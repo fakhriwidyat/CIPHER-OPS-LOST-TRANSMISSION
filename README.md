@@ -79,3 +79,6 @@ Selesai +100; tanpa salah +50; tiap salah −10; tiap hint berbayar −25; minim
 Save bersifat lokal pada browser dan origin. Browser dapat memisahkan save `file://` dan preview HTTP. Saat penyimpanan tidak tersedia, game tetap bisa dimainkan; progres bertahan selama sesi itu terbuka. Campaign solo disimpan; sesi co-op berlangsung dalam satu sesi browser.
 
 Ini simulasi pembelajaran matematika. Transformasi karakter dan serah-terima layar tidak dimaksudkan sebagai keamanan kriptografi nyata.
+
+## Soal acak Main Bareng
+Room baru memakai 30 tahap: 4/4/5/5/6/6 untuk enam distrik. Setiap pemain mendapat jenis tugas berbeda dan berganti pada tahap berikutnya. Kata, koefisien, posisi jawaban, dan urutan tugas ditentukan seed room dan sesi. Refresh/retry mempertahankan soal; kembali ke lobby dan mulai sesi baru menghasilkan paket baru. Room versi lama yang sedang berjalan tetap kompatibel. Mode solo dan local co-op masih memakai alur sebelumnya.

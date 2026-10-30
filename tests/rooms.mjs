@@ -8,6 +8,7 @@ const id = () => crypto.randomUUID();
 function team(count = 4) {
   const { room, player } = createRoom('ABC234', 'ECHO', 100000);
   for (let i = 1; i < count; i++) joinRoom(room, 'OP' + i, 100000);
+  room.challengeVersion = 2; // Regression coverage for existing rooms.
   let now = 100000;
   const cmd = (p, action, extra = {}) => command(room, p, { action, stageId: room.stageId, requestId: id(), ...extra }, now);
   const start = () => { for (const p of room.players) cmd(p, 'ready', { ready: true }); cmd(player, 'start'); };
@@ -146,7 +147,7 @@ test('legacy active rooms keep their original questions and upgrade only in a ne
   const t = team(2); delete t.room.challengeVersion; delete t.room.seed; for (const p of t.room.players) delete p.role;
   t.room.phase = 'playing'; assert.deepEqual(solution(challengeFor(t.room, t.player)), [19, 21]);
   t.cmd(t.player, 'answer', { answer: [19, 21] }); assert.equal(t.player.solved, true);
-  t.cmd(t.player, 'lobby'); assert.equal(t.room.challengeVersion, 2); assert.equal(new Set(snapshot(t.room, t.player, t.now()).players.map(p => p.role)).size, 2);
+  t.cmd(t.player, 'lobby'); assert.equal(t.room.challengeVersion, 3); assert.equal(new Set(snapshot(t.room, t.player, t.now()).players.map(p => p.role)).size, 2);
 });
 async function api(store, path, body, secret, origin = 'https://game.test') {
   const response = await handleAPI(new Request('https://game.test' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: origin, ...(secret ? { Authorization: 'Bearer ' + secret } : {}) }, body: JSON.stringify(body) }), store);
@@ -177,8 +178,8 @@ for (const [name, makeStore] of [['memory', () => new MemoryStore()], ['SQLite /
     const stageId = started.data.room.stageId;
     const responses = await Promise.all(secrets.map(async secret => { const state = await api(store, commandPath, { action: 'poll' }, secret); return api(store, commandPath, { action: 'answer', stageId, answer: solution(state.data.room.challenge), requestId: id() }, secret); }));
     assert.ok(responses.every(r => r.status === 200));
-    const final = await api(store, commandPath, { action: 'poll' }, secrets[0]); assert.equal(final.data.room.total, 150); assert.equal(final.data.room.phase, 'result');
-    assert.equal(final.data.room.players.filter(p => p.solved).length, 4);
+    const final = await api(store, commandPath, { action: 'poll' }, secrets[0]); assert.equal(final.data.room.total, 0); assert.equal(final.data.room.phase, 'playing'); assert.equal(final.data.room.stage, 1);
+    assert.equal(final.data.room.players.filter(p => p.solved).length, 0);
   });
 }
 test('HTTP auth, cross-origin, invalid route and JSON size are rejected', async () => {
@@ -187,4 +188,36 @@ test('HTTP auth, cross-origin, invalid route and JSON size are rejected', async 
   assert.equal((await api(store, '/api/rooms/create', { name: 'A' }, null, 'https://evil.test')).status, 403);
   assert.equal((await api(store, '/api/rooms/INVALID/join', { name: 'A' })).status, 404);
   assert.equal((await api(store, '/api/rooms/create', { name: 'A'.repeat(5000) })).status, 413);
+});
+
+test('new campaigns complete 30 varied stages, with stable refresh and fresh replay', () => {
+ const t=team(); t.room.challengeVersion=3; t.start(); let count=0;
+ for(let m=0;m<6;m++){
+  const stages=snapshot(t.room,t.player,t.now()).stages;
+  const previous=new Map();
+  for(let s=0;s<stages;s++){
+   const cs=t.room.players.map(p=>challengeFor(t.room,p));
+   assert.equal(new Set(cs.map(c=>c.kind)).size,4);
+   for(const [i,c] of cs.entries()){
+    assert.deepEqual(c,challengeFor(t.room,t.room.players[i]));
+    if(previous.has(i)) assert.notEqual(c.kind,previous.get(i));
+    previous.set(i,c.kind);
+    if(c.options) assert.equal(new Set(c.options.map(JSON.stringify)).size,4);
+   }
+   for(const [i,p] of t.room.players.entries()) t.cmd(p,'answer',{answer:solution(cs[i])});
+   count++;
+  }
+  assert.equal(t.room.phase,m===5?'finished':'result');
+  if(m<5)t.cmd(t.player,'next');
+ }
+ assert.equal(count,30); assert.equal(t.room.total,900);
+});
+test('new seeds change questions and task order',()=>{
+ const variants=new Set(),orders=new Set();
+ for(let seed=1;seed<=80;seed++){
+  const t=team();t.room.challengeVersion=3;t.room.seed=seed;
+  variants.add(JSON.stringify(challengeFor(t.room,t.player)));
+  orders.add(t.room.players.map(p=>challengeFor(t.room,p).kind).join(','));
+ }
+ assert.ok(variants.size>60);assert.ok(orders.size>20);
 });

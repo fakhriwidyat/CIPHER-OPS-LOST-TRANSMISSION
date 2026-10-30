@@ -1,5 +1,5 @@
 // Shared authoritative room rules. No browser, network, or storage dependencies.
-import { OPERATORS, operatorFor, assignmentFor, assignmentAnswer, explainAssignment, TEAM_GOALS } from './assignments.mjs';
+import { OPERATORS, operatorFor, assignmentFor, assignmentAnswer, explainAssignment, TEAM_GOALS, stageCount } from './assignments.mjs';
 export class RoomError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
@@ -20,7 +20,7 @@ export function callsign(value) {
 }
 export function createRoom(code, name, now = Date.now()) {
   const player = makePlayer(name, 0, now);
-  const room = { code, hostId: player.id, created: now, updated: now, phase: 'lobby', challengeVersion: 2, seed: crypto.getRandomValues(new Uint32Array(1))[0], round: 0, mission: 0, stage: 0, stageId: token(), health: 3, errors: 0, hints: 0, total: 0, records: [], players: [player], events: [] };
+  const room = { code, hostId: player.id, created: now, updated: now, phase: 'lobby', challengeVersion: 3, seed: crypto.getRandomValues(new Uint32Array(1))[0], round: 0, mission: 0, stage: 0, stageId: token(), health: 3, errors: 0, hints: 0, total: 0, records: [], players: [player], events: [] };
   log(room, `${player.name} membuka kanal tim.`, now);
   return { room, player };
 }
@@ -49,7 +49,7 @@ export function authenticate(room, secret) {
   fail(!p, 'Sesi pemain tidak ditemukan. Gabung kembali lewat kode room.', 401); return p;
 }
 export function challengeFor(room, player) {
-  return room.challengeVersion === 2 ? assignmentFor(room, player) : legacyChallengeFor(room, player);
+  return room.challengeVersion >= 2 ? assignmentFor(room, player) : legacyChallengeFor(room, player);
 }
 function legacyChallengeFor(room, player) {
   const i = player.slot, m = room.mission, s = room.stage;
@@ -71,7 +71,7 @@ function legacyChallengeFor(room, player) {
 }
 function expectedFor(room, p) {
   const c = challengeFor(room, p);
-  if (room.challengeVersion === 2) return assignmentAnswer(c);
+  if (room.challengeVersion >= 2) return assignmentAnswer(c);
   if (c.kind === 'decode') return c.cipher.map(n => String.fromCharCode(64 + (n - c.fn.b) / c.fn.a)).join('');
   if (c.kind === 'composition') return 2;
   if (c.kind === 'sequence') return c.options.findIndex(a => same(a, encode(c.plain, c.fn)));
@@ -97,7 +97,7 @@ function startMission(room, now) {
 }
 function finishStage(room, now) {
   if (paused(room, now) || !room.players.every(p => p.solved)) return;
-  if ((room.mission === 2 || room.mission === 5) && room.stage === 0) { room.stage++; resetStage(room); log(room, 'Semua paket terverifikasi. Tahap kedua terbuka.', now); }
+  if (room.stage + 1 < stageCount(room)) { room.stage++; resetStage(room); log(room, 'Semua paket terverifikasi. Tahap ' + (room.stage + 1) + '/' + stageCount(room) + ' terbuka.', now); }
   else {
     const score = points(room); room.total += score; room.records.push({ mission: room.mission, score }); room.phase = room.mission === 5 ? 'finished' : 'result';
     log(room, `${DISTRICTS[room.mission]} tersambung. +${score} poin tim.`, now);
@@ -121,7 +121,7 @@ export function command(room, p, input, now = Date.now()) {
   else if (action === 'start') {
     hostOnly(); fail(room.phase !== 'lobby', 'Misi sudah dimulai.', 409);
     fail(paused(room, now) || !room.players.every(q => q.ready), 'Butuh 2–4 pemain terhubung dan semuanya siap.', 409);
-    room.challengeVersion = 2; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0];
+    room.challengeVersion ??= 3; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0];
     startMission(room, now);
   } else if (action === 'answer' || action === 'hint') {
     fail(room.phase !== 'playing' || input.stageId !== room.stageId, 'Tahap sudah berubah. Jawaban ini tidak mengurangi nyawa.', 409);
@@ -140,7 +140,7 @@ export function command(room, p, input, now = Date.now()) {
     }
   } else if (action === 'next') { hostOnly(); fail(room.phase !== 'result', 'Misi belum selesai.', 409); fail(paused(room, now), 'Tunggu semua pemain tersambung.', 409); room.mission++; startMission(room, now); }
   else if (action === 'retry') { hostOnly(); fail(room.phase !== 'failed', 'Retry tersedia ketika nyawa habis.', 409); fail(paused(room, now), 'Tunggu semua pemain tersambung.', 409); startMission(room, now); }
-  else if (action === 'lobby') { hostOnly(); room.phase = 'lobby'; room.challengeVersion = 2; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0]; room.round = (room.round || 0) + 1; room.mission = 0; room.total = 0; room.records = []; resetStage(room); for (const q of room.players) q.ready = false; log(room, 'Host membuka sesi baru. Progres tim direset; paket soal baru disiapkan.', now); }
+  else if (action === 'lobby') { hostOnly(); room.phase = 'lobby'; room.challengeVersion = 3; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0]; room.round = (room.round || 0) + 1; room.mission = 0; room.total = 0; room.records = []; resetStage(room); for (const q of room.players) q.ready = false; log(room, 'Host membuka sesi baru. Progres tim direset; paket soal baru disiapkan.', now); }
   else if (action === 'remove') {
     hostOnly(); const target = room.players.find(q => q.id === input.playerId);
     fail(!target || target.id === p.id || connected(target, now), 'Hanya pemain yang terputus yang dapat dikeluarkan.', 409);
@@ -157,10 +157,10 @@ export function snapshot(room, p, now = Date.now()) {
   if (c && !p.hinted) delete c.hint;
   return {
     code: room.code, you: p.id, hostId: room.hostId, phase: room.phase, mission: room.mission, stage: room.stage, stageId: room.stageId,
-    title: TITLES[room.mission], district: DISTRICTS[room.mission], stages: room.mission === 2 || room.mission === 5 ? 2 : 1,
+    title: TITLES[room.mission], district: DISTRICTS[room.mission], stages: stageCount(room),
     health: room.health, errors: room.errors, hints: room.hints, total: room.total, potential: points(room), records: room.records,
     paused: room.phase !== 'lobby' && paused(room, now), challenge: c, events: room.events, operators: OPERATORS, teamGoal: TEAM_GOALS[room.mission],
-    debrief: room.challengeVersion === 2 && ['result', 'finished'].includes(room.phase) ? { task: assignmentFor(room, p).task, explanation: explainAssignment(assignmentFor(room, p)) } : null,
-    players: room.players.map(q => ({ id: q.id, name: q.name, slot: q.slot, role: operatorFor(q).id, task: room.challengeVersion === 2 ? assignmentFor(room, q).task : 'Verifikasi paket', host: q.id === room.hostId, ready: q.ready, solved: q.solved, hinted: q.hinted, connected: connected(q, now) }))
+    debrief: room.challengeVersion >= 2 && ['result', 'finished'].includes(room.phase) ? { task: assignmentFor(room, p).task, explanation: explainAssignment(assignmentFor(room, p)) } : null,
+    players: room.players.map(q => ({ id: q.id, name: q.name, slot: q.slot, role: operatorFor(q).id, task: room.challengeVersion >= 2 ? assignmentFor(room, q).task : 'Verifikasi paket', host: q.id === room.hostId, ready: q.ready, solved: q.solved, hinted: q.hinted, connected: connected(q, now) }))
   };
 }
