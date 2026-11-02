@@ -1,4 +1,4 @@
-/* Hand-drawn 32 × 48 pixel characters. All poses are rendered locally. */
+/* Pixel travellers for Novaris. All directional poses render locally on a 32 × 48 grid. */
 (function (root) {
   'use strict';
   const palettes = {
@@ -9,7 +9,110 @@
   palettes.nyx = { ...palettes.runner, hair: '#d1d1e1', hairLight: '#f4edff', skin: '#bd9caa', skinLight: '#e7c6c4', cloth: '#493761', clothLight: '#88719d', clothShade: '#292238', accent: '#c0a0ff', accentDark: '#765ca6', pants: '#242039', pantsLight: '#544564' };
   palettes.bolt = { ...palettes.runner, hair: '#522c26', hairLight: '#b16840', skin: '#a76c4e', skinLight: '#d89e6b', skinShade: '#754b3d', cloth: '#9b613d', clothLight: '#e1a263', clothShade: '#543f32', accent: '#ffd587', accentDark: '#98703f', pants: '#343c42', pantsLight: '#667678', metal: '#b5c4bf' };
   palettes.iris = { ...palettes.runner, hair: '#203c37', hairLight: '#648473', skin: '#b57d63', skinLight: '#e4b08a', skinShade: '#7e5c53', cloth: '#346354', clothLight: '#7ba78b', clothShade: '#1f3c39', accent: '#a9f0b6', accentDark: '#54856c', pants: '#263936', pantsLight: '#516963' };
+  // Field travellers: chunky silhouettes, warm leather and shaded long coats.
+  // Coordinates stay in the existing 32 x 48 footprint, including all poses.
+  const fieldPalettes = {
+    kai: { coat: '#21616b', light: '#39858a', shade: '#163f4b', hat: '#34434a', hatLight: '#56636a', hair: '#70452f', hairLight: '#a76a40', skin: '#e5ac77', face: '#ffd19a', shadow: '#b97853', glow: '#75e4e0' },
+    nyx: { coat: '#554260', light: '#816482', shade: '#352d46', hat: '#51404b', hatLight: '#806052', hair: '#a75d3b', hairLight: '#db965d', skin: '#e8b186', face: '#ffdab0', shadow: '#b97b68', glow: '#d9b4fa' },
+    bolt: { coat: '#9a643e', light: '#cd9252', shade: '#5b4034', hat: '#58493b', hatLight: '#907454', hair: '#342d2b', hairLight: '#655042', skin: '#ad7655', face: '#d9a575', shadow: '#80523e', glow: '#ffda8b' },
+    iris: { coat: '#3d6e58', light: '#719777', shade: '#274c42', hat: '#3d5041', hatLight: '#71816a', hair: '#382c32', hairLight: '#775348', skin: '#c38c68', face: '#edbc8b', shadow: '#95614f', glow: '#c4efa5' }
+  };
+  function drawField(ctx, type, pose) {
+    const id = type === 'runner' ? 'kai' : type, p = fieldPalettes[id];
+    const moving = pose.moving && !pose.reduced;
+    const phase = moving ? Math.floor((pose.time || 0) * 9) % 4 : 0;
+    const stride = [0, 2, 0, -2][phase];
+    const bob = pose.reduced ? 0 : moving ? phase % 2 : Math.floor((pose.time || 0) * 1.5) % 2;
+    const side = ['left', 'right'].includes(pose.direction), back = pose.direction === 'up';
+    const blink = !pose.reduced && (pose.time || 0) % 5.3 > 5.13;
+    const ink = '#281f28', leather = '#70472f', leatherLight = '#a66c40';
+    const r = (x, y, w, h, color) => { ctx.fillStyle = color; ctx.fillRect(x, y, w, h); };
+    // Rasterized polygons keep diagonal edges on the same integer pixel grid.
+    const shape = (points, color) => {
+      const ys = points.map(p => p[1]);
+      for (let y = Math.min(...ys); y < Math.max(...ys); y++) {
+        const xs = [];
+        points.forEach(([x1,y1], i) => { const [x2,y2] = points[(i+1)%points.length];
+          if ((y1 <= y+.5 && y2 > y+.5) || (y2 <= y+.5 && y1 > y+.5)) xs.push(x1+(y+.5-y1)*(x2-x1)/(y2-y1)); });
+        xs.sort((a,b)=>a-b);
+        for(let i=0;i+1<xs.length;i+=2) r(Math.floor(xs[i]),y,Math.ceil(xs[i+1])-Math.floor(xs[i]),1,color);
+      }
+    };
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.translate(Math.round(pose.x || 0), Math.round(pose.y || 0));
+    ctx.scale((pose.scale || 1)*(pose.aspect || 1),pose.scale || 1);
+    r(-12,-1,24,2,'#040d1855'); r(-9,-2,18,4,'#040d1833');
+    ctx.translate(-16,-48);
+    if(pose.direction === 'left') {ctx.translate(32,0);ctx.scale(-1,1);}
+    // Boots stay planted while the coat and bag lift with each step.
+    for(const [x,step] of [[10,stride],[19,-stride]]) {
+      r(x,37,6,8+step,ink); r(x+1,38,4,7+step,'#513e38');
+      r(x-2,44+step,8,4,ink); r(x-1,44+step,5,2,'#76513b'); r(x-2,47+step,8,1,'#a28464');
+    }
+    ctx.save();ctx.translate(0,-bob);
+    // A real pack silhouette and rolled bed-kit, rather than a tiny chest badge.
+    r(side?5:23,25,8,13,ink); r(side?6:24,26,6,10,leather);
+    r(side?6:24,26,5,3,leatherLight); r(side?8:26,30,2,2,ink);
+    r(side?6:24,36,5,2,'#50372d');r(side?5:24,23,6,3,ink);r(side?6:25,24,4,1,'#b68d62');
+    // The lower coat has an asymmetric, stepped hem and a readable lapel.
+    shape([[10,23],[22,23],[25,29],[26,40],[22,42],[8,41],[7,31]],ink);
+    shape([[11,24],[21,24],[23,29],[24,39],[20,40],[9,39],[9,30]],p.coat);
+    shape([[11,25],[14,25],[13,35],[10,38],[10,29]],p.light);
+    r(21,28,2,10,p.shade);r(10,39,11,1,p.shade);r(17,27,1,12,p.shade);
+    r(11,25,2,7,leather);r(21,25,2,8,leather);r(11,25,1,5,leatherLight);
+    if(back) {
+      r(11,25,12,12,ink);r(12,26,10,10,leather);r(13,27,8,3,leatherLight);
+      r(16,29,2,4,ink);r(16,30,2,1,'#d3b77c');r(13,34,8,1,'#50372d');
+    }
+    // Arms and uncovered hands, with an optional greeting pose.
+    const arm=(x,step)=>{r(x,26+step,5,11,ink);r(x+1,27+step,3,7,p.coat);r(x+1,27+step,1,6,p.light);r(x+1,34+step,3,2,p.face);};
+    if(!side)arm(5,-stride);arm(side?19:24,stride);
+    if(pose.wave&&!pose.reduced){r(25,24,4,8,p.coat);r(26,20+bob,3,5,p.face);}
+    // A compact face beneath a large brim: close to the supplied proportions.
+    const fx=side?14:10;
+    r(fx-1,13,15,12,ink);r(fx,14,13,9,p.hair);r(fx+2,16,11,8,p.skin);
+    r(fx+3,17,9,6,p.face);r(fx+5,23,6,2,p.skin);
+    if(!back){
+      r(fx+3,15,9,2,p.hair);r(fx+3,17,2,2,p.hairLight);r(fx+10,16,2,4,p.hair);
+      r(fx+4,19,2,blink?1:3,ink);if(!side)r(fx+10,19,2,blink?1:3,ink);
+      if(side)r(27,20,2,2,p.skin);r(fx+7,23,3,1,p.shadow);
+    }else{r(10,15,14,10,p.hair);r(11,16,2,7,p.hairLight);}
+    r(12,24,11,3,p.shade);r(13,24,9,1,p.glow);
+    if(id==='kai'){
+      // Soft field cap, long scarf, and courier radio.
+      shape([[8,14],[9,9],[15,7],[23,8],[25,14]],ink);
+      shape([[10,13],[11,10],[16,9],[22,10],[23,13]],p.hat);
+      r(11,10,10,1,p.hatLight);r(7,13,19,3,ink);r(9,13,18,1,p.hatLight);
+      r(8,25,4,10,p.shade);r(6-stride,32,6,3,p.glow);
+      if(!back){r(19,29,4,7,ink);r(20,30,2,3,p.light);r(21,26,1,4,'#c5b799');r(20,31,1,1,p.glow);}
+    }else if(id==='nyx'){
+      // Copper bob and a folded signal hood, inspired by the reference's hat.
+      shape([[6,14],[10,9],[15,6],[20,0],[26,1],[24,7],[24,13],[29,15],[28,17],[7,17]],ink);
+      shape([[9,13],[13,10],[17,7],[21,2],[24,2],[22,8],[22,13]],p.hat);
+      shape([[14,10],[19,6],[21,3],[23,3],[20,9]],p.hatLight);
+      r(8,14,19,1,leatherLight);r(10,15,15,1,p.hatLight);r(21,13,3,2,p.glow);
+      r(8,17,3,10,p.hair);r(9,19,1,6,p.hairLight);r(23,18,3,9,p.hair);
+      if(!back){r(7,31,5,7,ink);r(8,32,3,4,p.light);r(9,33,1,2,p.glow);}
+    }else if(id==='bolt'){
+      // A broad work jacket, pilot cap and goggles distinguish his build.
+      r(7,24,18,4,ink);r(8,25,16,2,p.light);
+      shape([[8,15],[9,10],[14,8],[22,9],[25,14],[24,17],[8,17]],ink);
+      r(10,11,13,3,p.hat);r(12,10,9,1,p.hatLight);r(8,14,18,2,leather);
+      if(!back){r(11,13,5,4,ink);r(18,13,5,4,ink);r(12,14,3,2,'#9fbeb8');r(19,14,3,2,'#d9cf98');r(16,14,2,1,'#ba9470');r(15,23,6,1,p.hair);}
+      r(25,29,4,8,ink);r(26,30,2,6,'#8b9b98');r(26,32,2,1,p.glow);
+      if(!back){r(8,35,4,6,ink);r(9,36,2,4,'#b9b69d');r(7,35,5,2,'#b9b69d');}
+    }else{
+      // Wide rain hat and a long braid, plus the navigator's antenna staff.
+      r(back?23:25,17,4,12,ink);r(back?24:26,18,2,10,p.hair);r(26,21,2,1,p.hairLight);r(26,25,2,1,p.hairLight);
+      shape([[5,15],[10,12],[12,8],[21,8],[24,12],[28,15],[26,17],[6,17]],ink);
+      shape([[9,14],[13,10],[20,10],[23,14]],p.hat);r(12,10,9,1,p.hatLight);r(7,15,19,1,p.hatLight);r(13,13,9,1,leatherLight);
+      r(3,27,2,20,ink);r(4,28,1,18,leatherLight);r(2,23,4,6,ink);r(3,24,2,3,p.glow);
+      if(!back){r(20,31,5,6,ink);r(21,32,3,3,p.shade);r(21,32,2,1,p.glow);}
+    }
+    ctx.restore();ctx.restore();
+  }
   function draw(target, type, pose = {}) {
+    if (type === 'runner' || fieldPalettes[type]) return drawField(target, type, pose);
     const p = palettes[type] || palettes.runner;
     const scale = pose.scale || 1;
     const phase = pose.moving ? Math.floor((pose.time || 0) * 9) % 4 : 0;
@@ -106,33 +209,6 @@
     const ear = side ? 14 : back ? 22 : 9;
     rect(ear, 11, 4, 6, 'outline'); rect(ear + 1, 12, 2, 3, 'metal'); rect(ear + 1, 12, 1, 2, 'accent');
     if (!back) { rect(ear + 2, 16, 4, 1, 'metal'); rect(ear + 5, 15, 2, 2, 'outline'); }
-    // Four operators have different silhouettes and equipment, beyond palette swaps.
-    if (type === 'kai') {
-      rect(11, 2, 8, 3, 'hair'); rect(17, 3, 7, 2, 'hairLight');
-      rect(side ? 7 : 6, 20, 4, 11, 'accentDark'); rect(side ? 4 : 4, 28, 6 + (phase % 2), 3, 'accent');
-      if (!back) { rect(20, 25, 4, 7, 'outline'); rect(21, 26, 2, 4, 'accentDark'); rect(22, 23, 1, 3, 'metal'); }
-    }
-    if (type === 'nyx') {
-      rect(7, 5, 18, 13, 'clothShade'); rect(10, 2, 12, 4, 'cloth'); rect(8, 4, 16, 3, 'clothLight');
-      rect(7, 15, 4, 8, 'cloth'); rect(23, 9, 3, 13, 'clothLight');
-      if (!back) { rect(11, 8, 12, 10, 'skinShade'); rect(13, 9, 9, 8, 'skin'); rect(10, 7, 13, 3, 'hair'); rect(12, 8, 3, 4, 'hairLight'); rect(11, 12, 13, 3, 'outline'); rect(12, 12, 11, 2, 'accent'); rect(18, 12, 2, 1, '#f3ecff'); rect(16, 17, 4, 1, 'skinShade'); }
-      rect(7, 28, 4, 10, 'clothShade'); rect(23, 29, 3, 9, 'cloth');
-      if (!back) { rect(13, 24, 6, 7, 'outline'); rect(14, 25, 4, 4, 'accentDark'); rect(15, 26, 2, 1, 'accent'); }
-    }
-    if (type === 'bolt') {
-      rect(4, 20, 24, 5, 'outline'); rect(5, 21, 22, 3, 'clothLight');
-      rect(24, 23, 5, 12, 'metal'); rect(25, 24, 3, 5, 'pantsLight'); rect(25, 30, 4, 2, 'outline'); rect(25, 32, 4, 3, 'metal');
-      rect(9, 6, 15, 3, 'clothShade'); rect(8, 8, 17, 2, 'outline');
-      if (!back) { rect(10, 8, 6, 4, 'metal'); rect(18, 8, 6, 4, 'metal'); rect(11, 9, 4, 2, 'accentDark'); rect(19, 9, 4, 2, 'accent'); rect(14, 16, 7, 2, 'hair'); }
-      rect(10, 23, 2, 9, 'accentDark'); rect(20, 23, 2, 9, 'accentDark');
-      rect(5, 32, 4, 8, 'outline'); rect(6, 33, 2, 6, 'metal'); rect(4, 33, 5, 2, 'metal');
-    }
-    if (type === 'iris') {
-      rect(back ? 20 : 24, 4, 5, 7, 'hair'); rect(back ? 22 : 26, 9, 4, 13, 'hair'); rect(back ? 23 : 27, 13, 2, 7, 'hairLight');
-      rect(9, 3, 14, 4, 'clothShade'); rect(8, 6, 16, 2, 'clothLight'); rect(11, 4, 9, 1, 'accent');
-      rect(5, 29, 4, 10, 'cloth'); rect(23, 30, 4, 9, 'clothShade');
-      if (!back) { rect(9, 23, 14, 2, 'clothShade'); rect(18, 25, 2, 9, 'clothLight'); rect(24, 27, 7, 8, 'outline'); rect(25, 28, 5, 5, 'accentDark'); rect(26, 29, 3, 2, 'accent'); rect(29, 24, 1, 4, 'metal'); }
-    }
     target.restore(); target.restore();
   }
   function portrait(type = 'aria', createCanvas) {

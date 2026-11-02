@@ -1,9 +1,9 @@
 // Operator identities and reproducible, private role assignments.
 export const OPERATORS = [
-  { id: 'kai', name: 'KAI', role: 'Kurir sinyal', color: '#56e4ff', specialty: 'Mengirim kode dan membuka jalur komunikasi.', gear: 'Scarf cyan / radio lapangan' },
-  { id: 'nyx', name: 'NYX', role: 'Analis sandi', color: '#c29aff', specialty: 'Membaca pesan tersembunyi dan lapisan enkripsi.', gear: 'Hood ungu / visor optik' },
-  { id: 'bolt', name: 'BOLT', role: 'Teknisi relai', color: '#ffbf69', specialty: 'Memperbaiki hitungan dan mengalibrasi mesin.', gear: 'Jaket tembaga / lengan mekanik' },
-  { id: 'iris', name: 'IRIS', role: 'Navigator', color: '#6effa8', specialty: 'Memilih rute aman dan melacak koordinat sinyal.', gear: 'Mantel hijau / pemindai portabel' }
+  { id: 'kai', name: 'KAI', role: 'Kurir sinyal', color: '#56e4ff', specialty: 'Mengirim kode dan membuka jalur komunikasi.', gear: 'Laki-laki · mantel teal / radio kurir' },
+  { id: 'nyx', name: 'NYX', role: 'Analis sandi', color: '#c29aff', specialty: 'Membaca pesan tersembunyi dan lapisan enkripsi.', gear: 'Perempuan · topi lipat / terminal sandi' },
+  { id: 'bolt', name: 'BOLT', role: 'Teknisi relai', color: '#ffbf69', specialty: 'Memperbaiki hitungan dan mengalibrasi mesin.', gear: 'Laki-laki · kacamata kerja / lengan mekanik' },
+  { id: 'iris', name: 'IRIS', role: 'Navigator', color: '#6effa8', specialty: 'Memilih rute aman dan melacak koordinat sinyal.', gear: 'Perempuan · topi lapangan / tongkat pemindai' }
 ];
 export const operatorFor = player => OPERATORS.find(r => r.id === player.role) || OPERATORS[player.slot];
 const words = ['KEY', 'MAP', 'LOG', 'ARC', 'SUN', 'SKY', 'FOX', 'NET', 'CAT', 'RED', 'AIR', 'ICE'];

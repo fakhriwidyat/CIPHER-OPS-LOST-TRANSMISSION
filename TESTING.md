@@ -73,3 +73,5 @@ Reproduced on the user's Vercel branch URL: the page returned 200 HTML while /ap
 
 
 2026-10-30: Main Bareng v3 menambah 30 tahap dan pengacakan enam jenis tugas. 66 tes lulus, termasuk seluruh 30 tahap empat pemain, perbedaan empat tugas tiap tahap, tidak ada jenis berulang berturut-turut, 80 seed, dan kompatibilitas v2.
+
+2026-11-02: Redesigned four playable field travellers from the supplied reference: KAI and BOLT male; NYX and IRIS female. Updated shared canvas sprites, solo runner, lobby cards, portraits and equipment descriptions. 66 existing tests and two directional/animation render checks pass. Reduced motion remains stable.
