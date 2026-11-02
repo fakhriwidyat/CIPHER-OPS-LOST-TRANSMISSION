@@ -44,6 +44,40 @@
     r(-12,-1,24,2,'#040d1855'); r(-9,-2,18,4,'#040d1833');
     ctx.translate(-16,-48);
     if(pose.direction === 'left') {ctx.translate(32,0);ctx.scale(-1,1);}
+    if(side) {
+      // A complete profile pose. The former profile moved only the face while
+      // leaving the hat, collar and equipment in their front-facing positions.
+      const leg=(x,step)=>{r(x,36,6,10+step,ink);r(x+1,37,4,8+step,'#513e38');r(x,44+step,9,4,ink);r(x+1,44+step,6,2,'#76513b');};
+      leg(12,-stride);leg(18,stride);
+      ctx.save();ctx.translate(0,-bob);
+      r(5,25,9,14,ink);r(6,26,7,11,leather);r(6,27,6,3,leatherLight);r(8,32,2,2,ink);
+      shape([[13,23],[23,23],[26,30],[25,41],[12,41],[11,30]],ink);
+      shape([[14,24],[22,24],[24,30],[23,39],[14,39],[13,30]],p.coat);
+      r(14,26,2,11,p.light);r(22,29,2,10,p.shade);
+      r(13,14,14,12,ink);r(14,15,12,9,p.hair);r(18,17,9,7,p.skin);r(20,18,7,5,p.face);r(27,20,2,2,p.skin);
+      r(14,16,5,8,p.hair);r(15,17,2,5,p.hairLight);r(24,19,2,blink?1:3,ink);r(22,23,3,1,p.shadow);
+      r(16,24,9,3,p.shade);r(17,24,8,1,p.glow);
+      // All headgear shares the profile head's anchor, not the front anchor.
+      if(id==='nyx') {
+        shape([[10,15],[14,9],[19,7],[23,1],[28,2],[25,9],[26,14],[30,16],[29,18],[11,18]],ink);
+        shape([[13,14],[17,10],[21,8],[24,3],[26,3],[23,10],[24,14]],p.hat);
+        r(12,15,17,1,p.hatLight);r(14,17,4,10,p.hair);r(15,19,1,7,p.hairLight);
+      }else if(id==='iris'){
+        shape([[10,15],[14,12],[16,9],[24,9],[26,13],[30,16],[28,18],[11,18]],ink);
+        r(16,11,8,3,p.hat);r(13,15,16,1,p.hatLight);r(10,17,4,13,p.hair);r(11,20,1,8,p.hairLight);
+      }else{
+        shape([[12,15],[14,10],[20,8],[26,10],[27,14],[30,15],[30,17],[12,17]],ink);
+        r(15,11,10,3,p.hat);r(16,10,8,1,p.hatLight);r(14,15,15,1,id==='bolt'?leatherLight:p.hatLight);
+        if(id==='bolt'){r(22,14,5,4,ink);r(23,15,3,2,'#b6c8b9');}
+      }
+      const armY=26+stride;
+      r(18,armY,7,12,ink);r(19,armY+1,5,8,p.coat);r(19,armY+1,2,7,p.light);r(20,armY+9,4,2,p.face);
+      if(id==='bolt'){r(20,armY+3,4,6,'#8b9b98');r(20,armY+5,4,1,p.glow);}
+      if(id==='kai'){r(10,25,4,9,p.shade);r(7-stride,31,6,3,p.glow);}
+      if(id==='iris'){r(27,28,2,19,ink);r(28,29,1,17,leatherLight);r(26,25,4,5,ink);r(27,26,2,2,p.glow);}
+      if(pose.wave&&!pose.reduced){r(23,23,4,10,p.coat);r(24,20,3,5,p.face);}
+      ctx.restore();ctx.restore();return;
+    }
     // Boots stay planted while the coat and bag lift with each step.
     for(const [x,step] of [[10,stride],[19,-stride]]) {
       r(x,37,6,8+step,ink); r(x+1,38,4,7+step,'#513e38');
@@ -111,7 +145,49 @@
     }
     ctx.restore();ctx.restore();
   }
-  function draw(target, type, pose = {}) {
+  function drawAria(ctx,pose) {
+    const ink='#202536',hair='#c0ced1',hairShade='#748c9c',ivory='#d6c9a6',light='#f2e3bf',shade='#8f957f',copper='#b97954',skin='#e7b38f';
+    const side=['left','right'].includes(pose.direction),back=pose.direction==='up';
+    const time=pose.time||0,bob=pose.reduced?0:Math.floor(time*1.3)%2;
+    const blink=!pose.reduced&&time%5.3>5.13;
+    const step=pose.moving&&!pose.reduced?[0,1,0,-1][Math.floor(time*9)%4]:0;
+    const r=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x,y,w,h);};
+    ctx.save();ctx.imageSmoothingEnabled=false;
+    ctx.translate(Math.round(pose.x||0),Math.round(pose.y||0));ctx.scale((pose.scale||1)*(pose.aspect||1),pose.scale||1);
+    r(-11,-1,22,2,'#040d1844');ctx.translate(-16,-48);
+    if(pose.direction==='left'){ctx.translate(32,0);ctx.scale(-1,1);}
+    for(const [x,s] of [[10,step],[19,-step]]){r(x,34,6,12+s,ink);r(x+1,35,4,9+s,'#3b4d60');r(x-1,44+s,8,4,ink);r(x,45+s,6,1,'#8faaa8');}
+    ctx.save();ctx.translate(0,-bob);
+    // Aria is a resident communications engineer: no traveller hat or backpack.
+    r(side?12:8,21,side?13:17,16,ink);r(side?13:9,22,side?11:15,14,ivory);
+    r(side?14:10,23,3,11,light);r(side?22:22,24,2,12,shade);
+    r(16,22,2,13,'#364d60');r(9,34,15,2,shade);r(14,35,4,2,ink);
+    const arm=(x)=>{r(x,23,5,12,ink);r(x+1,24,3,8,ivory);r(x+1,24,1,7,light);r(x+1,32,3,2,skin);};
+    if(!side)arm(5);arm(side?20:24);
+    // High silver bun, swept hair and small copper communications earpiece.
+    r(side?10:8,5,side?12:14,6,ink);r(side?11:9,6,side?10:12,4,hairShade);
+    r(side?12:10,6,7,2,hair);r(side?12:8,9,side?15:17,14,ink);
+    r(side?13:9,10,side?13:15,11,hairShade);
+    if(!back){
+      const x=side?18:11;
+      r(x,13,side?9:12,9,skin);r(x+1,14,side?7:10,6,'#ffcfab');
+      r(side?14:9,10,side?12:15,4,hair);r(side?15:10,14,3,6,hairShade);
+      r(side?24:13,16,2,blink?1:3,ink);if(!side)r(20,16,2,blink?1:3,ink);
+      if(side)r(27,18,2,2,skin);r(side?22:17,21,3,1,'#ae7969');
+      r(side?15:8,16,3,6,ink);r(side?16:9,17,2,3,copper);r(side?17:10,20,4,1,'#a9e4d9');
+    }else{r(10,11,13,10,hair);r(11,12,3,7,hairShade);r(14,21,7,2,hairShade);}
+    r(side?18:12,22,10,2,'#3a676c');r(side?19:13,22,7,1,'#a2ddd0');
+    if(!back){
+      r(side?16:19,26,4,2,copper);r(side?17:20,26,2,1,'#f4d798');
+      // Handheld diagnostic tablet identifies her role at room and portrait size.
+      r(side?20:6,29,side?7:10,10,ink);r(side?21:7,30,side?5:8,7,'#345d68');
+      r(side?22:8,31,side?3:6,1,'#b4e6cf');r(side?22:8,33,3,1,'#7ba6a5');r(side?21:7,37,4,1,skin);
+    }
+    if(pose.wave&&!pose.reduced){r(25,22,4,9,ivory);r(26,17,3,6,skin);}
+    ctx.restore();ctx.restore();
+  }
+  function drawRaw(target, type, pose = {}) {
+    if (type === 'aria') return drawAria(target, pose);
     if (type === 'runner' || fieldPalettes[type]) return drawField(target, type, pose);
     const p = palettes[type] || palettes.runner;
     const scale = pose.scale || 1;
@@ -210,6 +286,19 @@
     rect(ear, 11, 4, 6, 'outline'); rect(ear + 1, 12, 2, 3, 'metal'); rect(ear + 1, 12, 1, 2, 'accent');
     if (!back) { rect(ear + 2, 16, 4, 1, 'metal'); rect(ear + 5, 15, 2, 2, 'outline'); }
     target.restore(); target.restore();
+  }
+  // Composite at native resolution first. Scaling individual rectangles can
+  // produce hairline seams at fractional world/CSS scales on Safari and Chrome.
+  let spriteBuffer;
+  function draw(target, type, pose = {}) {
+    if (typeof document === 'undefined' || !target.drawImage) return drawRaw(target,type,pose);
+    if (!spriteBuffer) { spriteBuffer=document.createElement('canvas');spriteBuffer.width=48;spriteBuffer.height=56; }
+    const context=spriteBuffer.getContext('2d');context.clearRect(0,0,48,56);
+    drawRaw(context,type,{...pose,x:24,y:52,scale:1,aspect:1});
+    const sx=(pose.scale||1)*(pose.aspect||1),sy=pose.scale||1;
+    const x=Math.round((pose.x||0)-24*sx),y=Math.round((pose.y||0)-52*sy);
+    target.save();target.imageSmoothingEnabled=false;
+    target.drawImage(spriteBuffer,x,y,Math.round(48*sx),Math.round(56*sy));target.restore();
   }
   function portrait(type = 'aria', createCanvas) {
     const sheet = createCanvas(128, 144), p = sheet.getContext('2d');
