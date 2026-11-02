@@ -46,7 +46,7 @@
       target.strokeStyle = '#78dcd36e'; target.lineWidth = 1;
       target.strokeRect(Math.round(actor.x - 17), Math.round(actor.y - 3), 34, 5);
     }
-    CharacterArt.draw(target, 'runner', { ...actor, time: actor.moving ? actor.time : time, reduced });
+    CharacterArt.draw(target, 'runner', { ...actor, time: actor.time, reduced });
     if (showPlayerLabel) {
       const y = Math.round(actor.y - 48 * actor.scale - 5);
       target.save(); target.translate(Math.round(actor.x), y); target.scale(actor.aspect || 1, 1);
@@ -186,14 +186,14 @@
   function animate() {
     if (!canvas || !canvas.isConnected) return;
     ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(base, 0, 0);
-    if (mode === 'hub') people(ctx, reduced ? 0 : frame / 60, interactive);
+    if (mode === 'hub') people(ctx, reduced ? 0 : actor.visualTime ?? frame / 60, interactive);
     if ((mode === 'city' || mode === 'ending') && !reduced) {
       ctx.strokeStyle = '#91b5c125'; ctx.lineWidth = 1;
       for (let i = 0; i < 100; i++) { const x = (i * 97 + frame * 1.1) % W, y = (i * 67 + frame * 4) % H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + 7); ctx.stroke(); }
       if (frame % 150 < 75) { ctx.fillStyle = '#e0a1b8'; ctx.fillRect(730, 39, 5, 2); }
     }
     if ((mode === 'hub' || mode === 'terminal') && !reduced && frame % 120 < 60) { ctx.fillStyle = '#6effa8'; ctx.fillRect(357, 331, 3, 3); }
-    frame++; if (!reduced || interactive) raf = requestAnimationFrame(animate);
+    frame++; if ((!reduced || interactive) && !(mode === 'hub' && interactive)) raf = requestAnimationFrame(animate);
   }
   function mount(element, scene, options = {}) {
     cancelAnimationFrame(raf); canvas = element; if (!canvas) return;
@@ -208,6 +208,8 @@
   function portrait(type = 'aria') {
     return CharacterArt.portrait(type, (width, height) => { const sheet = document.createElement('canvas'); sheet.width = width; sheet.height = height; return sheet; });
   }
-  function setActor(pose) { actor = { ...actor, ...pose }; }
+  // Navigation drives the interactive room's paint in the same animation frame;
+  // a second independent RAF previously displayed the preceding movement pose.
+  function setActor(pose) { actor = { ...actor, ...pose }; if (mode === 'hub' && interactive && canvas?.isConnected) animate(); }
   window.PixelArt = { mount, portrait, setActor };
 })();

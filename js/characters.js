@@ -19,10 +19,11 @@
   };
   function drawField(ctx, type, pose) {
     const id = type === 'runner' ? 'kai' : type, p = fieldPalettes[id];
-    const moving = pose.moving && !pose.reduced;
-    const phase = moving ? Math.floor((pose.time || 0) * 9) % 4 : 0;
-    const stride = [0, 2, 0, -2][phase];
-    const bob = pose.reduced ? 0 : moving ? phase % 2 : Math.floor((pose.time || 0) * 1.5) % 2;
+    const weight = pose.reduced ? 0 : pose.gaitWeight ?? (pose.moving ? 1 : 0);
+    const cycle = (pose.time || 0) * Math.PI * 4;
+    const phase = Math.floor((pose.time || 0) * 16) % 8;
+    const stride = Math.round(Math.sin(cycle) * 2 * weight);
+    const bob = Math.round((1-Math.cos(cycle*2))*.5*weight);
     const side = ['left', 'right'].includes(pose.direction), back = pose.direction === 'up';
     const blink = !pose.reduced && (pose.time || 0) % 5.3 > 5.13;
     const ink = '#281f28', leather = '#70472f', leatherLight = '#a66c40';

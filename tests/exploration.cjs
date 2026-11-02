@@ -1,6 +1,27 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { ROOM, OBJECTS, walkable, clearLine, findPath, createNavigator } = require('../js/exploration.js');
+test('gait tracks distance, settles without sliding and stays consistent across frame rates',()=>{
+  const positions=[];
+  for(const fps of [30,60,120]) {
+    const nav=createNavigator({x:500,y:450});
+    for(let i=0;i<fps;i++)nav.step(1/fps,{x:1});
+    assert.ok(Math.abs(nav.state.time-(nav.state.x-500)/ROOM.speed)<1e-8);
+    const x=nav.state.x,time=nav.state.time;
+    for(let i=0;i<fps/2;i++)nav.step(1/fps);
+    assert.equal(nav.state.x,x);assert.equal(nav.state.time,time);
+    assert.ok(nav.state.gaitWeight<.001);
+    positions.push(x);
+  }
+  assert.ok(Math.max(...positions)-Math.min(...positions)<2);
+});
+test('small diagonal fluctuations preserve facing and blocked movement does not advance gait',()=>{
+  const nav=createNavigator({x:550,y:440,direction:'right'});
+  for(let i=0;i<12;i++) {nav.step(1/60,{x:1,y:i%2?1.01:.99});assert.equal(nav.state.direction,'right');}
+  const wall=createNavigator({x:ROOM.maxX,y:480,direction:'right'});
+  for(let i=0;i<60;i++)wall.step(1/60,{x:1});
+  assert.equal(wall.state.time,0);assert.equal(wall.state.gaitWeight,0);
+});
 function finish(nav, maxFrames = 1500) {
   for (let i = 0; i < maxFrames && (nav.state.path.length || nav.state.destination); i++) {
     nav.step(1 / 60);

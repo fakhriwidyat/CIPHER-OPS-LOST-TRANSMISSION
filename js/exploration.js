@@ -65,9 +65,10 @@
     return smooth;
   }
   function createNavigator(initial = {}, onInteract = () => {}) {
-    const state = { x: walkable(initial.x, initial.y) ? initial.x : 476, y: walkable(initial.x, initial.y) ? initial.y : 446, direction: initial.direction || 'down', moving: false, time: 0, path: [], destination: null, pending: null };
+    const state = { x: walkable(initial.x, initial.y) ? initial.x : 476, y: walkable(initial.x, initial.y) ? initial.y : 446, direction: initial.direction || 'down', moving: false, time: 0, gaitWeight: 0, path: [], destination: null, pending: null };
+    let speed = 0;
     function nearest() { return OBJECTS.map(o => ({ ...o, distance: distance(state, o) })).filter(o => o.distance <= 53).sort((a, b) => a.distance - b.distance)[0] || null; }
-    function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; }
+    function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; speed = 0; }
     function moveTo(target, objectId = null) {
       state.path = findPath(state, target); state.destination = state.path.length ? { ...state.path[state.path.length - 1] } : null; state.pending = state.path.length ? objectId : null;
       return state.path.length > 0;
@@ -86,18 +87,35 @@
       const dt = Math.max(0, Math.min(.05, seconds));
       const vx = Number(input.x) || 0, vy = Number(input.y) || 0;
       let dx = 0, dy = 0;
+      const wantsMovement = !!(vx || vy || state.path.length);
+      speed += ((wantsMovement ? ROOM.speed : 0) - speed) * (1 - Math.exp(-dt / .045));
       if (vx || vy) {
-        stop(); const norm = Math.hypot(vx, vy); dx = vx / norm * ROOM.speed * dt; dy = vy / norm * ROOM.speed * dt;
+        state.path = []; state.destination = null; state.pending = null;
+        const norm = Math.hypot(vx, vy); dx = vx / norm * speed * dt; dy = vy / norm * speed * dt;
       } else if (state.path.length) {
-        const target = state.path[0], d = distance(state, target), travel = ROOM.speed * dt;
-        if (d <= travel) { dx = target.x - state.x; dy = target.y - state.y; state.path.shift(); }
-        else { dx = (target.x - state.x) / d * travel; dy = (target.y - state.y) / d * travel; }
+        // Carry unused distance across corners instead of losing a frame at
+        // every waypoint. Each segment still follows a collision-safe path.
+        let travel = speed * dt, anchor = { x: state.x, y: state.y };
+        while (state.path.length && travel > 0) {
+          const target = state.path[0], d = distance(anchor, target);
+          if (d <= travel) { anchor = { ...target }; travel -= d; state.path.shift(); }
+          else { anchor.x += (target.x-anchor.x)/d*travel; anchor.y += (target.y-anchor.y)/d*travel; travel=0; }
+        }
+        dx = anchor.x-state.x; dy = anchor.y-state.y;
       }
       const before = { x: state.x, y: state.y };
       if (walkable(state.x + dx, state.y)) state.x += dx;
       if (walkable(state.x, state.y + dy)) state.y += dy;
       state.moving = distance(before, state) > .01;
-      if (state.moving) { state.time += dt; state.direction = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up'; }
+      const travelled = distance(before,state);
+      state.gaitWeight += ((state.moving ? 1 : 0)-state.gaitWeight)*(1-Math.exp(-dt/.065));
+      if (state.moving) {
+        state.time += travelled / ROOM.speed;
+        // Keep the current facing near diagonal ties to avoid left/up flicker.
+        if (Math.abs(dx)>Math.abs(dy)*1.15) state.direction=dx>0?'right':'left';
+        else if (Math.abs(dy)>Math.abs(dx)*1.15) state.direction=dy>0?'down':'up';
+        else if (!['left','right','up','down'].includes(state.direction) || (state.direction==='left'&&dx>=0)||(state.direction==='right'&&dx<=0)||(state.direction==='up'&&dy>=0)||(state.direction==='down'&&dy<=0)) state.direction=dx>0?'right':'left';
+      }
       if (!state.path.length && state.destination) {
         const pending = state.pending, object = OBJECTS.find(o => o.id === pending);
         state.destination = null; state.pending = null; state.moving = false;
@@ -133,7 +151,7 @@
       if (!paused && !isBlocked()) navigator.step(dt, { x: Number(keys.has('right')) - Number(keys.has('left')), y: Number(keys.has('down')) - Number(keys.has('up')) });
       if (destroyed) return;
       const width = canvas.clientWidth || 960, height = canvas.clientHeight || 540, verticalScale = height / 540;
-      onPose({ ...navigator.state, scale: (width < 600 ? 70 : 110) / (48 * verticalScale), aspect: verticalScale / (width / 960) }); updateHUD();
+      onPose({ ...navigator.state, visualTime: now/1000, scale: (width < 600 ? 70 : 110) / (48 * verticalScale), aspect: verticalScale / (width / 960) }); updateHUD();
       if (!destroyed) raf = requestAnimationFrame(frame);
     }
     function editable(target) { return ['INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName) || target?.isContentEditable; }
