@@ -52,29 +52,30 @@ test('custom track loops without synth music, follows mixer/visibility and clean
  engine.configure({musicVolume:0});assert.equal(gain.gain.value,0);
  engine.setVisible(false);assert.equal(track.paused,true);engine.setVisible(true);await Promise.resolve();
  assert.ok(plays>=2);assert.equal(created,1);
+ const before=context.starts.length;track.onerror();engine.setScene('menu');engine.unlock();await Promise.resolve();assert.equal(context.starts.length,before);assert.equal(intervals.size,0);
  engine.destroy();assert.equal(track.paused,true);assert.ok(media.disconnected);assert.ok(pauses>=2);
 });
 test('no AudioContext, music, or ambient sources are created before a gesture', () => {
   const app = setup(); app.engine.configure({ volume: 60 }); app.engine.setScene('hub'); app.engine.movement({ x: 500, y: 440, moving: true });
   assert.equal(app.created(), 0); assert.equal(app.context.starts.length, 0); assert.equal(app.engine.state().unlocked, false);
 });
-test('first gesture builds one context, four ambient loops, and one music scheduler', async () => {
+test('first gesture creates no legacy music scheduler or ambient loops', async () => {
   const app = setup(); app.engine.unlock(); app.engine.unlock(); await app.flush();
-  assert.equal(app.created(), 1); assert.equal(app.context.resumeCount, 1); assert.equal(app.intervals.size, 1);
-  assert.equal(app.context.starts.filter(s => s.node.loop || s.node.kind === 'oscillator' && s.at === 0).length, 4);
-  for (let i = 0; i < 20; i++) app.engine.unlock(); assert.equal(app.created(), 1); assert.equal(app.intervals.size, 1); app.engine.destroy();
+  assert.equal(app.created(), 1); assert.equal(app.context.resumeCount, 1); assert.equal(app.intervals.size, 0);
+  assert.equal(app.context.starts.filter(s => s.node.loop || s.node.kind === 'oscillator' && s.at === 0).length, 0);
+  for (let i = 0; i < 20; i++) app.engine.unlock(); assert.equal(app.created(), 1); assert.equal(app.intervals.size, 0); app.engine.destroy();
 });
 test('mute fades out, suspends, and resumes the same context without duplicate loops', async () => {
   const app = setup(); app.engine.unlock(); await app.flush();
   app.engine.configure({ sound: false }); assert.equal(app.intervals.size, 0); app.timers(); assert.equal(app.context.state, 'suspended');
   const count = app.context.starts.length; assert.equal(app.engine.play('complete'), false); assert.equal(app.engine.preview(), false); assert.equal(app.context.starts.length, count);
-  app.engine.configure({ sound: true }); await app.flush(); assert.equal(app.context.state, 'running'); assert.equal(app.created(), 1); assert.equal(app.intervals.size, 1); app.engine.destroy();
+  app.engine.configure({ sound: true }); await app.flush(); assert.equal(app.context.state, 'running'); assert.equal(app.created(), 1); assert.equal(app.intervals.size, 0); app.engine.destroy();
 });
 test('volume settings clamp invalid values and independently reach their mix buses', async () => {
   assert.deepEqual(normalize({ volume: 150, musicVolume: -2, ambienceVolume: NaN, effectsVolume: 22.8 }), { sound: true, volume: 100, musicVolume: 0, ambienceVolume: 58, effectsVolume: 23 });
   const app = setup(); app.engine.configure({ volume: 70, musicVolume: 0, effectsVolume: 30, ambienceVolume: 45 }); app.engine.unlock(); await app.flush();
   const gains = app.context.nodes.filter(n => n.kind === 'gain');
-  assert.equal(gains[0].gain.value, .7); assert.equal(gains[1].gain.value, .3); assert.equal(gains[2].gain.value, 0); assert.equal(gains[3].gain.value, .45);
+  assert.equal(gains[0].gain.value, .7); assert.equal(gains[1].gain.value, .3); assert.equal(gains.length, 3);
   assert.ok(app.context.nodes.some(n => n.kind === 'compressor' && n.ratio.value === 6)); app.engine.destroy();
 });
 test('all sound cues schedule valid pitches and envelopes; repeated clicks are throttled', async () => {
@@ -83,8 +84,8 @@ test('all sound cues schedule valid pitches and envelopes; repeated clicks are t
   app.context.currentTime += 5; app.engine.play('click'); const count = app.context.starts.length; assert.equal(app.engine.play('click'), false); assert.equal(app.context.starts.length, count);
   app.context.starts.filter(s => !s.node.loop).forEach(start => assert.ok(start.at >= 0)); app.engine.destroy();
 });
-test('puzzle music is quieter and omits the melody; scheduler never catches up in a burst', async () => {
-  assert.ok(PROFILES.puzzle.music < PROFILES.dialogue.music && PROFILES.dialogue.music < PROFILES.hub.music); assert.equal(PROFILES.puzzle.notes, false);
+test('puzzle lowers the supplied track and no procedural music is scheduled', async () => {
+  assert.ok(PROFILES.puzzle.music < PROFILES.dialogue.music && PROFILES.dialogue.music < PROFILES.hub.music); 
   const app = setup(); app.engine.unlock(); await app.flush(); app.engine.setScene('puzzle');
   app.context.currentTime = 1000; const before = app.context.starts.length; [...app.intervals.values()].forEach(cb => cb());
   assert.ok(app.context.starts.length - before <= 4); const after = app.context.starts.length; [...app.intervals.values()].forEach(cb => cb()); assert.equal(app.context.starts.length, after); app.engine.destroy();
@@ -98,7 +99,7 @@ test('footsteps follow movement distance and stop when the player stops or leave
 });
 test('hidden tabs suspend playback and rapid return cancels pending suspension', async () => {
   const app = setup(); app.engine.unlock(); await app.flush(); app.engine.setVisible(false); assert.equal(app.intervals.size, 0); assert.equal(app.engine.play('radio'), false);
-  app.engine.setVisible(true); await app.flush(); app.timers(); assert.equal(app.context.state, 'running'); assert.equal(app.intervals.size, 1);
+  app.engine.setVisible(true); await app.flush(); app.timers(); assert.equal(app.context.state, 'running'); assert.equal(app.intervals.size, 0);
   app.engine.setVisible(false); app.timers(); assert.equal(app.context.state, 'suspended'); app.engine.setVisible(true); await app.flush(); assert.equal(app.context.state, 'running'); app.engine.destroy();
 });
 test('unsupported audio fails safely and destroy clears loops, voices, and timers', async () => {
