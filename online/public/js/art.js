@@ -197,7 +197,7 @@
   }
   function mount(element, scene, options = {}) {
     cancelAnimationFrame(raf); canvas = element; if (!canvas) return;
-    ctx = canvas.getContext('2d'); canvas.width = W; canvas.height = H; mode = scene; restored = options.restored || 0; reduced = !!options.reduced;
+    ctx = canvas.getContext('2d'); const density=Math.max(1,Math.min(2,(window.devicePixelRatio||1)*(canvas.clientWidth||W)/W)); canvas.width=Math.round(W*density);canvas.height=Math.round(H*density);ctx.setTransform(density,0,0,density,0,0); mode = scene; restored = options.restored || 0; reduced = !!options.reduced;
     interactive = !!options.interactive;
     const width = canvas.clientWidth || W, height = canvas.clientHeight || H, verticalScale = height / H;
     const fillRoom = !!canvas.closest('.hub-scene');

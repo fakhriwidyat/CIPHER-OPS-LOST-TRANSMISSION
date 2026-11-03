@@ -133,3 +133,30 @@
 @media(max-width:1000px) { .room-layout { grid-template-columns:235px minmax(0,1fr) } .room-main { padding:27px 24px } .room-sidebar { padding:25px 16px } .room-top { padding:18px 22px } .room-top .scene-title { font-size:11px } .room-network { font-size:8px } }
 @media(max-width:740px) { .room-layout { grid-template-columns:1fr } .room-sidebar { border-right:0; border-bottom:1px solid var(--line); padding:22px } .room-code-block { display:grid; grid-template-columns:1fr auto; gap:8px; margin-bottom:20px } .room-code-block>strong { grid-row:2; font-size:28px } .room-code-block>.button { grid-column:2; grid-row:2/4; align-self:center } .room-roster { grid-template-columns:1fr 1fr } .room-team-stats { border:0; padding:20px 0 0 } .room-guide { margin-top:18px } .room-save-note { display:none } .room-top { gap:12px; flex-wrap:wrap; min-height:75px } .room-top .scene-title { margin-left:auto; text-align:right } .room-top .room-network { width:100%; text-align:right; font-size:7px } .room-main { padding:27px 22px } .room-entry { padding:34px 24px } .room-entry-columns { grid-template-columns:1fr } .room-entry-columns>section+section { border-left:0; border-top:1px solid var(--line) } .room-onboarding { gap:14px; flex-direction:column; font-size:10px } .room-terminal-content { padding:20px 16px } .room-terminal .terminal-chrome { font-size:8px; padding:12px } .room-action-row .button { padding:14px 16px; font-size:9px } }
 @media(max-width:380px) { .room-sidebar,.room-main { padding:20px 14px } .room-roster { gap:6px } .room-player { padding:9px 6px; gap:6px } .room-avatar { width:24px } .room-player-copy strong { font-size:9px } .room-player-copy>span { font-size:6px } .host-badge { font-size:6px } .room-lobby-illustration { gap:10px } .room-lobby-illustration i { display:none } .room-entry { padding:30px 18px } }
+
+/* Assembly room: clear status column and readable operator selection. */
+.room-scene .room-top{background:#091827;border-bottom-color:#395361}
+.room-entry{max-width:1060px;padding-top:40px}
+.room-entry-head h1{font-weight:600;letter-spacing:-1.2px}
+.room-onboarding{padding:22px 0;gap:30px;color:#a7bec5}
+.room-entry-columns{border-color:#3a5563;background:#0d2130}
+.room-entry-columns>section{padding:30px;gap:18px}
+.room-entry-columns>section:first-child{border-top:2px solid #8dc5c4}
+.room-entry-columns>section+section{border-top:2px solid #b99b77}
+.room-entry-columns h2{font-weight:500;font-size:27px}
+.room-entry-columns .button{min-height:52px}
+.room-sidebar{background:#0a1927;border-right-color:#314b59}
+.room-code-block{padding-bottom:22px;border-bottom:1px solid #314b59}
+.room-code-block>strong{color:#b2e6df;letter-spacing:5px}
+.room-main{background:linear-gradient(145deg,#112534bb,#0b172366)}
+.room-mission-head h1{font-weight:600;letter-spacing:-1px}
+.operator-picker{gap:13px}
+.operator-card{padding:18px 12px;background:linear-gradient(180deg,#193442,#102531);border-color:#3b5664;box-shadow:none}
+.operator-card[aria-pressed=true]{background:linear-gradient(180deg,#254550,#152f3a);box-shadow:inset 0 3px var(--operator-color)}
+.operator-card canvas{margin:9px 0 12px;max-width:120px}
+.operator-card>strong{font-size:21px}
+.operator-card>b{color:#d4dfdf;min-height:34px;margin:10px 0}
+.operator-card>small{color:#92a7b2;border-color:#365361}
+.room-action-row{padding-top:22px;border-top:1px solid #365361}
+.room-action-row>.button{min-height:50px}
+@media(max-width:740px){.room-entry{padding:30px 22px}.room-entry-columns>section{padding:23px}.room-main{padding:28px 20px}.operator-card{padding:14px 10px}.operator-card canvas{max-width:104px}.room-onboarding{gap:15px}}

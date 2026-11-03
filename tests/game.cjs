@@ -11,6 +11,7 @@ function setup(savedEntries = []) {
   const game = node(), modal = node(); nodes.set('#game', game); nodes.set('#modal', modal);
   const getNode = selector => { if (!nodes.has(selector)) nodes.set(selector, node()); return nodes.get(selector); };
   game.querySelector = getNode;
+  game.querySelectorAll = () => [];
   const document = { querySelector: getNode, activeElement: node(), body: node(), addEventListener: (type, callback) => { listeners[type] = callback; } };
   const PixelArt = { mount() {}, portrait() { return 'data:image/png;base64,test'; } };
   const context = { document, PixelArt, localStorage: { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) }, setTimeout: (callback, ms) => { const id = ++timerId; timers.set(id, { callback, ms }); return id; }, clearTimeout: id => timers.delete(id), FormData: class { constructor(form) { this.data = form.values; } get(key) { return this.data[key] ?? null; } } };

@@ -43,14 +43,19 @@ test('Aria has her own artwork in every direction, with stable reduced motion',(
 test('browser composites a native pixel buffer once at fractional world scales',()=>{
   const vm=require('node:vm'),fs=require('node:fs');
   const nativeScales=[],blits=[];
-  const native={save(){},restore(){},translate(){},scale(x,y){nativeScales.push([x,y]);},clearRect(){},fillRect(x,y,w,h){assert.ok([x,y,w,h].every(Number.isInteger));}};
+  const native={save(){},restore(){},translate(){},scale(x,y){nativeScales.push([x,y]);},clearRect(){},fillRect(x,y,w,h){assert.ok([x,y,w,h].every(v=>Number.isInteger(v*4)));}};
   const buffer={getContext:()=>native};
   const window={};vm.runInNewContext(fs.readFileSync(require.resolve('../js/characters.js'),'utf8'),{window,document:{createElement:()=>buffer}});
   const target={save(){},restore(){},drawImage(...args){blits.push(args);},fillRect(){assert.fail('Never scale individual sprite parts on the world canvas');}};
   for(const type of ['runner','aria','kai','nyx','bolt','iris']) for(const direction of ['left','right','up','down']) for(const time of [0,.12,.24,.36]) {
     window.CharacterArt.draw(target,type,{x:432.7,y:408.3,scale:1.85,aspect:1.37,direction,time,moving:true});
   }
-  assert.equal(blits.length,96);assert.equal(buffer.width,48);assert.equal(buffer.height,56);
-  assert.ok(nativeScales.every(([x,y])=>Math.abs(x)===1&&y===1));
-  assert.ok(blits.every(args=>args.slice(1).every(Number.isInteger)));
+  assert.equal(blits.length,96);assert.equal(buffer.width,192);assert.equal(buffer.height,224);
+  assert.ok(nativeScales.every(([x,y])=>(Math.abs(x)===4&&y===4)||(x===-1&&y===1)));
+  assert.ok(blits.every(args=>args.slice(1).every(Number.isFinite)));
+});
+
+test('walking has more than eight distinct intermediate poses in a cycle',()=>{
+ const poses=new Set();for(let frame=0;frame<30;frame++)poses.add(render('kai',{moving:true,direction:'right',time:frame/60}));
+ assert.ok(poses.size>8, `Expected intermediate walk poses; got ${poses.size}`);
 });

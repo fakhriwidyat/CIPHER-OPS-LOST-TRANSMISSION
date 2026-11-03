@@ -119,16 +119,17 @@
         <p class="menu-tagline">Kota terputus. Tim kamu adalah sinyal terakhir.<span>Pecahkan sandi, pulihkan enam distrik, temukan pengirimnya.</span></p>
         <p class="menu-mode-label">PILIH JALUR OPERASI</p>
         <nav class="menu-actions" aria-label="Menu utama">
-          ${action('new', '<span>NEW GAME</span><span class="keycap">↵</span>', 'button primary wide')}
+          ${action('online', icons.coop + 'MAIN BARENG<span>2–4 DEVICE</span>', 'coop-link room-menu-link')}
+          ${action('new', '<span>NEW GAME</span><span class="keycap">↵</span>', 'button ghost wide')}
           ${action('continue', `<span>CONTINUE</span><small>${campaign ? escapeHTML(campaign.callsign) + ' / ' + campaign.completed.length + ' OF 6' : 'NO SAVED SIGNAL'}</small>`, 'button ghost wide', campaign ? '' : 'disabled')}
           ${action('coopSetup', icons.coop + 'LOCAL CO-OP<span>2 PLAYERS</span>', 'coop-link')}
-          ${action('online', icons.coop + 'MAIN BARENG<span>2–4 DEVICE</span>', 'coop-link room-menu-link')}
         </nav>
       </div>
-      <aside class="dispatch-panel" aria-label="Briefing operasi"><div class="dispatch-status"><i></i> KANAL DARURAT / 140.85</div><p class="dispatch-kicker">PANGGILAN DARI NOVARIS</p><h2>Masih ada yang <br>mendengarkan.</h2><p>Empat operator. Keahlian berbeda.<br>Satu jaringan yang harus kembali hidup.</p><div class="dispatch-operators">${['kai','nyx','bolt','iris'].map(id=>`<figure><img src="${window.PixelArt.portrait(id)}" alt=""><figcaption>${id.toUpperCase()}</figcaption></figure>`).join('')}</div><div class="dispatch-footer"><span>06 DISTRIK</span><span>2–4 PEMAIN ONLINE</span></div></aside>
+      <aside class="dispatch-panel" aria-label="Briefing operasi"><div class="dispatch-status"><i></i> KANAL DARURAT / 140.85</div><p class="dispatch-kicker">PANGGILAN DARI NOVARIS</p><h2>Masih ada yang <br>mendengarkan.</h2><p>Empat operator. Keahlian berbeda.<br>Satu jaringan yang harus kembali hidup.</p><div class="dispatch-operators">${['kai','nyx','bolt','iris'].map(id=>`<figure><canvas width="96" height="128" data-menu-operator="${id}" aria-hidden="true"></canvas><figcaption>${id.toUpperCase()}</figcaption></figure>`).join('')}</div><div class="dispatch-footer"><span>06 DISTRIK</span><span>2–4 PEMAIN ONLINE</span></div></aside>
       <div class="distress"><i></i> SIGNAL LOST_</div><div class="frequency">FREQ. 140.85</div>
       <div class="world-caption">THE CITY IS STILL LISTENING.<small>SOMEWHERE, SOMEONE IS TRANSMITTING.</small></div>
       <div class="menu-bottom">${action('settings', icons.settings + ' SETTINGS', 'settings-link')}<span>A PIXEL-ART NARRATIVE ADVENTURE <b> · </b> v1.0</span></div>`, 'menu-scene');
+    game.querySelectorAll('[data-menu-operator]').forEach(canvas => window.CharacterArt?.draw(canvas.getContext('2d'),canvas.dataset.menuOperator,{x:48,y:120,scale:2.35,direction:'down',reduced:true}));
     mount('city');
   }
   function startNew() {

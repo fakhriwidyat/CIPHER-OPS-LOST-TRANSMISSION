@@ -21,9 +21,9 @@
     const id = type === 'runner' ? 'kai' : type, p = fieldPalettes[id];
     const weight = pose.reduced ? 0 : pose.gaitWeight ?? (pose.moving ? 1 : 0);
     const cycle = (pose.time || 0) * Math.PI * 4;
-    const phase = Math.floor((pose.time || 0) * 16) % 8;
-    const stride = Math.round(Math.sin(cycle) * 2 * weight);
-    const bob = Math.round((1-Math.cos(cycle*2))*.5*weight);
+    const quarter = value => Math.round(value * 4) / 4;
+    const stride = quarter(Math.sin(cycle) * 2 * weight);
+    const bob = quarter((1-Math.cos(cycle*2))*.5*weight);
     const side = ['left', 'right'].includes(pose.direction), back = pose.direction === 'up';
     const blink = !pose.reduced && (pose.time || 0) % 5.3 > 5.13;
     const ink = '#281f28', leather = '#70472f', leatherLight = '#a66c40';
@@ -48,7 +48,7 @@
     if(side) {
       // A complete profile pose. The former profile moved only the face while
       // leaving the hat, collar and equipment in their front-facing positions.
-      const leg=(x,step)=>{const swing=Math.round(step*.65),lift=Math.max(0,step);r(x,36,6,6,ink);r(x+swing,40-lift,6,6,ink);r(x+1+swing,40-lift,4,5,'#513e38');r(x+swing,44-lift,9,4,ink);r(x+1+swing,44-lift,6,2,'#76513b');};
+      const leg=(x,step)=>{const swing=quarter(step*.65),lift=Math.max(0,step);r(x,36,6,6,ink);r(x+swing,40-lift,6,6,ink);r(x+1+swing,40-lift,4,5,'#513e38');r(x+swing,44-lift,9,4,ink);r(x+1+swing,44-lift,6,2,'#76513b');};
       leg(12,-stride);leg(18,stride);
       ctx.save();ctx.translate(0,-bob);
       r(5,25,9,14,ink);r(6,26,7,11,leather);r(6,27,6,3,leatherLight);r(8,32,2,2,ink);
@@ -288,16 +288,17 @@
     if (!back) { rect(ear + 2, 16, 4, 1, 'metal'); rect(ear + 5, 15, 2, 2, 'outline'); }
     target.restore(); target.restore();
   }
-  // Composite at native resolution first. Scaling individual rectangles can
+  // Composite on a 4x integer grid, with quarter-pixel gait in the logical sprite.
+  // Whole-sprite fractional placement keeps world movement continuous. Scaling individual rectangles can
   // produce hairline seams at fractional world/CSS scales on Safari and Chrome.
   let spriteBuffer;
   function draw(target, type, pose = {}) {
     if (typeof document === 'undefined' || !target.drawImage) return drawRaw(target,type,pose);
-    if (!spriteBuffer) { spriteBuffer=document.createElement('canvas');spriteBuffer.width=48;spriteBuffer.height=56; }
-    const context=spriteBuffer.getContext('2d');context.clearRect(0,0,48,56);
-    drawRaw(context,type,{...pose,x:24,y:52,scale:1,aspect:1});
+    if (!spriteBuffer) { spriteBuffer=document.createElement('canvas');spriteBuffer.width=192;spriteBuffer.height=224; }
+    const context=spriteBuffer.getContext('2d');context.clearRect(0,0,192,224);
+    drawRaw(context,type,{...pose,x:96,y:208,scale:4,aspect:1});
     const sx=(pose.scale||1)*(pose.aspect||1),sy=pose.scale||1;
-    const x=Math.round((pose.x||0)-24*sx),y=Math.round((pose.y||0)-52*sy);
+    const x=(pose.x||0)-24*sx,y=(pose.y||0)-52*sy;
     target.save();target.imageSmoothingEnabled=false;
     target.drawImage(spriteBuffer,x,y,Math.round(48*sx),Math.round(56*sy));target.restore();
   }

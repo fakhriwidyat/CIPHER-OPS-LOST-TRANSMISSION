@@ -3167,3 +3167,13 @@ body.reduce-motion *,body.reduce-motion *::before,body.reduce-motion *::after {
 .menu-scene .menu-vignette{background:linear-gradient(90deg,#071322f5,#091625dc 34%,#09152344 72%),linear-gradient(0deg,#091321dd,transparent 45%)}
 @media(max-width:850px){.menu-scene{height:auto;max-height:none;min-height:800px}.menu-scene .menu-content{width:58%;padding-left:5%;padding-top:45px}.dispatch-panel{right:4%;width:32%;padding:20px 17px 0;top:29%}.dispatch-panel h2{font-size:25px}.dispatch-operators{grid-template-columns:repeat(2,1fr);gap:13px}.dispatch-operators img{max-height:82px;object-position:50% 60%}.dispatch-footer{flex-direction:column}}
 @media(max-width:600px){.menu-scene{min-height:0;padding-bottom:95px}.menu-scene .menu-content{width:100%;max-width:none;padding:44px 25px 28px}.menu-scene .title-logo{margin-top:28px}.menu-scene .title-logo img{width:min(80%,290px)}.menu-scene .menu-tagline{font-size:15px;margin-top:22px}.menu-scene .menu-actions{max-width:none}.dispatch-panel{position:relative;top:auto;right:auto;width:auto;max-width:none;margin:0 25px;padding:20px 20px 0}.dispatch-panel h2{font-size:25px}.dispatch-panel h2 br{display:none}.dispatch-operators{grid-template-columns:repeat(4,1fr);margin:20px 0}.dispatch-operators img{max-height:none}.dispatch-footer{flex-direction:row;font-size:7px}.menu-scene .menu-bottom{bottom:25px}.menu-scene .signal-widget{display:none}}
+
+/* Final menu hierarchy: the team is visible in full, with multiplayer up front. */
+.menu-scene .title-logo img{width:min(100%,300px)}
+.menu-scene .menu-actions .room-menu-link{margin:0 0 3px;min-height:58px;background:#b1dddd;color:#0a2835;border-color:#c0eded;box-shadow:inset 0 -3px #7baeb5}
+.menu-scene .menu-actions .room-menu-link:hover{background:#c7ece7;color:#0a2835}
+.menu-scene .dispatch-panel{top:15%;border-left-color:#6fa7ac;background:linear-gradient(120deg,#0d2030f5,#102435e8)}
+.dispatch-operators canvas{display:block;width:100%;height:auto;image-rendering:pixelated;background:linear-gradient(180deg,#1a3343aa,#12263533);border-bottom:1px solid #617c82}
+.menu-scene .dispatch-operators{gap:12px;margin-top:22px}
+@media(max-width:850px){.menu-scene .dispatch-panel{top:20%}.dispatch-operators canvas{max-height:125px;object-fit:contain}}
+@media(max-width:600px){.menu-scene .dispatch-panel{top:auto}.menu-scene .title-logo img{width:min(85%,270px)}.dispatch-operators canvas{max-height:none}}
