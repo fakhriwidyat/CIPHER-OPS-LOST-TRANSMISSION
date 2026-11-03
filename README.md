@@ -12,7 +12,7 @@ Petualangan naratif pixel-art berbahasa Indonesia. Mode solo dan local co-op bis
 
 ## Main Bareng / 2–4 perangkat
 
-Link online: https://cipher-ops-lost-transmission.wavycat8.chatgpt.site
+Link online: https://cipher-ops-lost-transmission.flexbox-code.chatgpt.site
 
 1. Semua membuka link game online dan memilih **MAIN BARENG**.
 2. Host mengisi callsign, menekan **BUAT ROOM**, lalu **SALIN UNDANGAN**.

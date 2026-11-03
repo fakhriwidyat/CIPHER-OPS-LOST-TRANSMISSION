@@ -1,5 +1,5 @@
 // Vercel keeps the frontend and API same-origin; persistent rooms live in D1.
-const DEFAULT_SERVER = 'https://cipher-ops-lost-transmission.wavycat8.chatgpt.site';
+const DEFAULT_SERVER = 'https://cipher-ops-lost-transmission.flexbox-code.chatgpt.site';
 class GatewayError extends Error {
   constructor(message, status) { super(message); this.status = status; }
 }
