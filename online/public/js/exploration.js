@@ -66,9 +66,9 @@
   }
   function createNavigator(initial = {}, onInteract = () => {}) {
     const state = { x: walkable(initial.x, initial.y) ? initial.x : 476, y: walkable(initial.x, initial.y) ? initial.y : 446, direction: initial.direction || 'down', moving: false, time: 0, gaitWeight: 0, path: [], destination: null, pending: null };
-    let speed = 0;
+    let speed = 0, velocityX = 0, velocityY = 0;
     function nearest() { return OBJECTS.map(o => ({ ...o, distance: distance(state, o) })).filter(o => o.distance <= 53).sort((a, b) => a.distance - b.distance)[0] || null; }
-    function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; speed = 0; }
+    function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; speed = 0; velocityX=0;velocityY=0; }
     function moveTo(target, objectId = null) {
       state.path = findPath(state, target); state.destination = state.path.length ? { ...state.path[state.path.length - 1] } : null; state.pending = state.path.length ? objectId : null;
       return state.path.length > 0;
@@ -89,10 +89,19 @@
       let dx = 0, dy = 0;
       const wantsMovement = !!(vx || vy || state.path.length);
       speed += ((wantsMovement ? ROOM.speed : 0) - speed) * (1 - Math.exp(-dt / .045));
-      if (vx || vy) {
+      if (vx || vy || (!state.path.length && Math.hypot(velocityX,velocityY)>.5)) {
         state.path = []; state.destination = null; state.pending = null;
-        const norm = Math.hypot(vx, vy); dx = vx / norm * speed * dt; dy = vy / norm * speed * dt;
+        const norm = Math.hypot(vx, vy) || 1;
+        const tx=vx/norm*ROOM.speed,ty=vy/norm*ROOM.speed;
+        const tau=(vx||vy) ? .075 : .045;
+        const decay=Math.exp(-dt/tau);
+        // Integrate the velocity curve, rather than snapping direction or
+        // applying a frame-dependent lerp to position. Braking is short and bounded.
+        dx=tx*dt+(velocityX-tx)*tau*(1-decay);
+        dy=ty*dt+(velocityY-ty)*tau*(1-decay);
+        velocityX=tx+(velocityX-tx)*decay;velocityY=ty+(velocityY-ty)*decay;
       } else if (state.path.length) {
+        velocityX=0;velocityY=0;
         // Carry unused distance across corners instead of losing a frame at
         // every waypoint. Each segment still follows a collision-safe path.
         let travel = speed * dt, anchor = { x: state.x, y: state.y };
@@ -104,8 +113,8 @@
         dx = anchor.x-state.x; dy = anchor.y-state.y;
       }
       const before = { x: state.x, y: state.y };
-      if (walkable(state.x + dx, state.y)) state.x += dx;
-      if (walkable(state.x, state.y + dy)) state.y += dy;
+      if (walkable(state.x + dx, state.y)) state.x += dx; else velocityX=0;
+      if (walkable(state.x, state.y + dy)) state.y += dy; else velocityY=0;
       state.moving = distance(before, state) > .01;
       const travelled = distance(before,state);
       state.gaitWeight += ((state.moving ? 1 : 0)-state.gaitWeight)*(1-Math.exp(-dt/.065));

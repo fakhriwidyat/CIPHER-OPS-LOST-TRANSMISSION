@@ -39,6 +39,21 @@ function setup() {
   const timers = () => { const tasks = [...timeouts.values()]; timeouts.clear(); tasks.forEach(cb => cb()); };
   return { engine, context, intervals, timeouts, flush, timers, created: () => created };
 }
+test('custom track loops without synth music, follows mixer/visibility and cleans up',async()=>{
+ const context=new Context();context.createMediaElementSource=()=>context.node('media');
+ let plays=0,pauses=0,created=0;
+ const track={paused:true,play(){plays++;this.paused=false;return Promise.resolve();},pause(){pauses++;this.paused=true;},removeAttribute(){},load(){}};
+ const intervals=new Set();
+ const engine=createEngine({createContext:()=>context,createTrack:()=>{created++;return track;},setInterval:fn=>{intervals.add(fn);return fn;},clearInterval:fn=>intervals.delete(fn)});
+ assert.equal(created,0);engine.unlock();await Promise.resolve();await Promise.resolve();
+ assert.equal(created,1);assert.equal(track.loop,true);assert.equal(plays,1);assert.equal(intervals.size,0);
+ const media=context.nodes.find(n=>n.kind==='media'),gain=media.connections[0];
+ const menu=gain.gain.value;engine.setScene('puzzle');assert.ok(gain.gain.value<menu);
+ engine.configure({musicVolume:0});assert.equal(gain.gain.value,0);
+ engine.setVisible(false);assert.equal(track.paused,true);engine.setVisible(true);await Promise.resolve();
+ assert.ok(plays>=2);assert.equal(created,1);
+ engine.destroy();assert.equal(track.paused,true);assert.ok(media.disconnected);assert.ok(pauses>=2);
+});
 test('no AudioContext, music, or ambient sources are created before a gesture', () => {
   const app = setup(); app.engine.configure({ volume: 60 }); app.engine.setScene('hub'); app.engine.movement({ x: 500, y: 440, moving: true });
   assert.equal(app.created(), 0); assert.equal(app.context.starts.length, 0); assert.equal(app.engine.state().unlocked, false);

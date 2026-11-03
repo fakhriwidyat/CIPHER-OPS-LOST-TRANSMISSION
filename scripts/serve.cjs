@@ -8,7 +8,7 @@ const root = path.resolve(__dirname, '..');
 const port = Number(process.env.PORT || 4173), host = process.env.HOST || '0.0.0.0';
 const network = Object.values(os.networkInterfaces()).flat().find(n => n && n.family === 'IPv4' && !n.internal);
 const shareUrl = network ? `http://${network.address}:${port}/` : `http://127.0.0.1:${port}/`;
-const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.wav': 'audio/wav' };
+const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.wav': 'audio/wav', '.mp3': 'audio/mpeg' };
 async function start() {
   const { handleAPI, MemoryStore } = await import(pathToFileURL(path.join(root, 'server/api.mjs')).href);
   const store = new MemoryStore();

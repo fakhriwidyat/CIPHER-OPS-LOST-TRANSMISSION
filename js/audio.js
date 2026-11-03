@@ -1,4 +1,4 @@
-/* Original procedural soundtrack and sound design. No downloads or external audio. */
+/* User-supplied background track, with local procedural ambience and effects. */
 (function (root) {
   'use strict';
   const DEFAULTS = { sound: true, volume: 55, musicVolume: 36, ambienceVolume: 58, effectsVolume: 75 };
@@ -52,6 +52,8 @@
     const later = options.setTimeout || setTimeout, stopLater = options.clearTimeout || clearTimeout;
     let config = { ...DEFAULTS }, context = null, master, effects, music, ambience, musicScene;
     let rainGain, roomGain, humGain, noiseBuffer, impulse, reverbSend;
+    let trackElement = null, trackSource = null, trackGain = null, trackFailed = false, trackStarting = false;
+    const createTrack = options.createTrack || (() => root.Audio ? new root.Audio('assets/novaris-theme.mp3') : null);
     let unlocked = false, visible = true, resuming = false, scene = 'menu', interval = null, sleepTimer = null, generation = 0;
     let nextChord = 0, nextNote = 0, chordIndex = 0, beat = 0, statusListener = () => {};
     let lastStep = -Infinity, stepDistance = 0, lastPosition = null, foot = 0, lastPreview = -Infinity;
@@ -104,6 +106,19 @@
       const hum = context.createGain(); hum.gain.value = 0; hum.connect(ambience); humGain = hum.gain;
       [55, 110.13].forEach((frequency, i) => { const osc = context.createOscillator(), trim = context.createGain(); osc.type = 'sine'; osc.frequency.value = frequency; trim.gain.value = i ? .22 : .7; osc.connect(trim); trim.connect(hum); osc.start(); loops.push(osc); });
       context.onstatechange = announce;
+      if (context.createMediaElementSource) {
+        try {
+          trackElement=createTrack();
+          if(trackElement) {
+            trackElement.loop=true;trackElement.preload='metadata';trackElement.volume=1;
+            trackElement.hidden=true;trackElement.setAttribute?.('aria-hidden','true');
+            trackElement.setAttribute?.('data-soundtrack','novaris');root.document?.body?.appendChild(trackElement);
+            trackGain=context.createGain();trackGain.gain.value=0;
+            trackSource=context.createMediaElementSource(trackElement);trackSource.connect(trackGain);trackGain.connect(master);
+            trackElement.onerror=()=>{trackFailed=true;trackElement.pause();startScheduler();announce();};
+          }
+        } catch (_) { trackFailed=true; }
+      }
       mix(true);
     }
     function mix(immediate = false) {
@@ -113,6 +128,7 @@
       ramp(music.gain, config.musicVolume / 100, .3);
       ramp(ambience.gain, config.ambienceVolume / 100, .3);
       ramp(musicScene.gain, profile.music, fade);
+      if(trackGain) ramp(trackGain.gain,trackFailed?0:config.musicVolume/100*profile.music*.22,fade);
       ramp(rainGain, profile.rain, fade); ramp(roomGain, profile.room, fade); ramp(humGain, profile.hum, fade);
       ramp(master.gain, config.sound && visible ? config.volume / 100 : 0, .15);
     }
@@ -147,6 +163,7 @@
       track(source, gain, nodes, 'effect'); source.start(at, .35); source.stop(at + duration + .025);
     }
     function scheduleMusic() {
+      if(trackElement&&!trackFailed) return;
       if (!context || !config.sound || !visible || !unlocked || context.state !== 'running') return;
       const now = context.currentTime, profile = PROFILES[scene] || PROFILES.menu, beatLength = .72;
       if (nextChord < now - .2) nextChord = now + .05;
@@ -162,10 +179,21 @@
         nextNote += beatLength; beat++;
       }
     }
-    function startScheduler() { if (interval === null) interval = every(scheduleMusic, 80); scheduleMusic(); }
+    function startScheduler() {
+      if(trackElement&&!trackFailed) {
+        if(!trackElement.paused||trackStarting) return;
+        trackStarting=true;
+        Promise.resolve(trackElement.play()).then(()=>{
+          trackStarting=false;if(!config.sound||!visible||!unlocked)trackElement?.pause();
+        }).catch(()=>{trackStarting=false;});
+        return;
+      }
+      if (interval === null) interval = every(scheduleMusic, 80); scheduleMusic();
+    }
     function stopScheduler() { if (interval !== null) { stopEvery(interval); interval = null; } }
     function hush() {
       stopScheduler(); lastPosition = null; stepDistance = 0;
+      trackElement?.pause();
       if (!context) return;
       // Cancel cue tails and scheduled pads so returning to the tab cannot stack old music.
       voices.forEach(voice => { ramp(voice.gain.gain, 0, .06); try { voice.source.stop(context.currentTime + .075); } catch (_) {} });
@@ -202,8 +230,8 @@
         catch (_) { context = null; announce(); return false; }
       }
       if (context.state === 'closed') return false;
-      if (!unlocked) { unlocked = true; activate(); }
-      else if (context.state !== 'running') activate();
+      if (!unlocked) { unlocked = true; if(trackElement&&!trackFailed)startScheduler(); activate(); }
+      else if (context.state !== 'running' || trackElement?.paused) activate();
       return true;
     }
     function setScene(value) {
@@ -246,6 +274,8 @@
     function destroy() {
       stopScheduler(); if (sleepTimer !== null) stopLater(sleepTimer);
       generation++; unlocked = false;
+      if(trackElement){trackElement.pause();trackElement.onerror=null;trackElement.removeAttribute?.('src');trackElement.load?.();trackElement.remove?.();}
+      trackSource?.disconnect();trackElement=null;trackSource=null;trackGain=null;
       voices.forEach(v => { try { v.source.stop(); } catch (_) {} }); voices.clear();
       loops.forEach(source => { try { source.stop(); source.disconnect(); } catch (_) {} }); loops.length = 0;
       if (context) { context.onstatechange = null; try { context.close()?.catch?.(() => {}); } catch (_) {} }

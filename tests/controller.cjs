@@ -33,7 +33,7 @@ test('touch directions stop on pointer release and cleanup removes owned listene
   const button = { dataset: { move: 'right' }, setPointerCapture() {} };
   const event = { button: 0, pointerId: 1, target: { closest: selector => selector === '[data-move]' ? button : null }, preventDefault() {} };
   app.events.get('scene:pointerdown')(event); app.tick(12); assert.ok(app.pose().x > start);
-  app.events.get('scene:pointerup')(event); const stopped = app.pose().x; app.tick(12); assert.equal(app.pose().x, stopped);
+  app.events.get('scene:pointerup')(event); const stopped = app.pose().x; app.tick(30); assert.ok(app.pose().x-stopped < 6); const settled=app.pose().x;app.tick(10);assert.equal(app.pose().x,settled);
   app.controller.destroy(); assert.equal(app.events.size, 0); assert.equal(app.frames.size, 0);
 });
 test('E away from an object explains how to interact instead of changing screens', () => {

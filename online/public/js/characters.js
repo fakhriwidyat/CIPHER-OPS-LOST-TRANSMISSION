@@ -48,7 +48,7 @@
     if(side) {
       // A complete profile pose. The former profile moved only the face while
       // leaving the hat, collar and equipment in their front-facing positions.
-      const leg=(x,step)=>{r(x,36,6,10+step,ink);r(x+1,37,4,8+step,'#513e38');r(x,44+step,9,4,ink);r(x+1,44+step,6,2,'#76513b');};
+      const leg=(x,step)=>{const swing=Math.round(step*.65),lift=Math.max(0,step);r(x,36,6,6,ink);r(x+swing,40-lift,6,6,ink);r(x+1+swing,40-lift,4,5,'#513e38');r(x+swing,44-lift,9,4,ink);r(x+1+swing,44-lift,6,2,'#76513b');};
       leg(12,-stride);leg(18,stride);
       ctx.save();ctx.translate(0,-bob);
       r(5,25,9,14,ink);r(6,26,7,11,leather);r(6,27,6,3,leatherLight);r(8,32,2,2,ink);

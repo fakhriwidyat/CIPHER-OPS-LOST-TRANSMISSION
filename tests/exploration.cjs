@@ -1,7 +1,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { ROOM, OBJECTS, walkable, clearLine, findPath, createNavigator } = require('../js/exploration.js');
-test('gait tracks distance, settles without sliding and stays consistent across frame rates',()=>{
+test('gait tracks distance, brakes within six pixels and stays consistent across frame rates',()=>{
   const positions=[];
   for(const fps of [30,60,120]) {
     const nav=createNavigator({x:500,y:450});
@@ -9,8 +9,9 @@ test('gait tracks distance, settles without sliding and stays consistent across 
     assert.ok(Math.abs(nav.state.time-(nav.state.x-500)/ROOM.speed)<1e-8);
     const x=nav.state.x,time=nav.state.time;
     for(let i=0;i<fps/2;i++)nav.step(1/fps);
-    assert.equal(nav.state.x,x);assert.equal(nav.state.time,time);
-    assert.ok(nav.state.gaitWeight<.001);
+    assert.ok(nav.state.x-x>0&&nav.state.x-x<6);assert.ok(nav.state.time>time);
+    const stopped=nav.state.x;nav.step(1/30);assert.equal(nav.state.x,stopped);
+    assert.ok(nav.state.gaitWeight<.03);
     positions.push(x);
   }
   assert.ok(Math.max(...positions)-Math.min(...positions)<2);
@@ -82,4 +83,13 @@ test('floor clicks on obstacles or outside the room resolve to safe reachable po
 test('saved locations outside the room fall back to the starting position', () => {
   const nav = createNavigator({ x: NaN, y: -100 }); assert.equal(nav.state.x, 476); assert.equal(nav.state.y, 446);
   nav.approach('aria'); nav.stop(); assert.equal(nav.state.moving, false); assert.equal(nav.state.pending, null);
+});
+
+test('reversal eases velocity rather than snapping position or direction',()=>{
+ const nav=createNavigator({x:550,y:450});
+ for(let i=0;i<30;i++)nav.step(1/60,{x:1});
+ const start=nav.state.x;nav.step(1/60,{x:-1});
+ assert.ok(nav.state.x>start);
+ for(let i=0;i<15;i++)nav.step(1/60,{x:-1});
+ assert.ok(nav.state.x<start);assert.equal(nav.state.direction,'left');
 });
