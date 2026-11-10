@@ -135,7 +135,7 @@
     return { state, step, nearest, stop, moveTo, approach, interact };
   }
   function mount({ scene, canvas, initial, onInteract, onPose, onHint, isBlocked = () => false }) {
-    const navigator = createNavigator(initial, onInteract), keys = new Set();
+    const navigator = createNavigator(initial, onInteract), keys = new Set(), pointers = new Map();
     let raf = 0, last = 0, paused = false, destroyed = false, lastNearby = '', lastDestination = false;
     const prompt = scene.querySelector('.world-interaction');
     const promptName = scene.querySelector('.interaction-name');
@@ -157,7 +157,10 @@
     function frame(now) {
       if (destroyed || !scene.isConnected) return;
       const dt = last ? (now - last) / 1000 : 0; last = now;
-      if (!paused && !isBlocked()) navigator.step(dt, { x: Number(keys.has('right')) - Number(keys.has('left')), y: Number(keys.has('down')) - Number(keys.has('up')) });
+      if (!paused && !isBlocked()) {
+        const held = pointers.size ? new Set([...keys, ...pointers.values()]) : keys;
+        navigator.step(dt, { x: Number(held.has('right')) - Number(held.has('left')), y: Number(held.has('down')) - Number(held.has('up')) });
+      }
       if (destroyed) return;
       const width = canvas.clientWidth || 960, height = canvas.clientHeight || 540, verticalScale = height / 540;
       onPose({ ...navigator.state, visualTime: now/1000, scale: (width < 600 ? 70 : 110) / (48 * verticalScale), aspect: verticalScale / (width / 960) }); updateHUD();
@@ -171,28 +174,32 @@
       if (key === 'e' && !event.repeat) { event.preventDefault(); if (!navigator.interact()) onHint('Dekati terminal, peta, archive, atau Aria. Tekan E saat petunjuk interaksi muncul.'); }
     }
     function keyUp(event) { const key = event.key.length === 1 ? event.key.toLowerCase() : event.key; if (keyNames[key]) keys.delete(keyNames[key]); }
-    function clearKeys() { keys.clear(); }
+    function clearKeys() { keys.clear(); pointers.clear(); }
     function pointerDown(event) {
       if (paused || isBlocked() || event.button > 0) return;
       const direction = event.target.closest('[data-move]');
-      if (direction) { event.preventDefault(); keys.add(direction.dataset.move); direction.setPointerCapture?.(event.pointerId); return; }
+      if (direction) {
+        event.preventDefault(); pointers.set(event.pointerId, direction.dataset.move);
+        try { direction.setPointerCapture?.(event.pointerId); } catch (_) {}
+        return;
+      }
       if (event.target.closest('button, a, input, details, .scene-top, .hub-bottom')) return;
       const bounds = canvas.getBoundingClientRect();
       const target = { x: (event.clientX - bounds.left) / bounds.width * 960, y: (event.clientY - bounds.top) / bounds.height * 540 };
       if (target.y < 355 || target.y > 506) return;
-      event.preventDefault(); keys.clear(); navigator.moveTo(target);
+      event.preventDefault(); clearKeys(); navigator.moveTo(target);
     }
-    function pointerUp(event) { const direction = event.target.closest('[data-move]'); if (direction) keys.delete(direction.dataset.move); }
+    function pointerUp(event) { pointers.delete(event.pointerId); }
     document.addEventListener('keydown', keyDown); document.addEventListener('keyup', keyUp);
     window.addEventListener('blur', clearKeys);
-    scene.addEventListener('pointerdown', pointerDown); scene.addEventListener('pointerup', pointerUp); scene.addEventListener('pointercancel', clearKeys);
+    scene.addEventListener('pointerdown', pointerDown); scene.addEventListener('pointerup', pointerUp); scene.addEventListener('pointercancel', pointerUp); scene.addEventListener('lostpointercapture', pointerUp);
     raf = requestAnimationFrame(frame); updateHUD();
     return {
-      approach(id) { if (!paused && !isBlocked()) { keys.clear(); navigator.approach(id); } },
+      approach(id) { if (!paused && !isBlocked()) { clearKeys(); navigator.approach(id); } },
       interact() { if (!paused && !isBlocked()) navigator.interact(); },
       position() { return { x: navigator.state.x, y: navigator.state.y, direction: navigator.state.direction }; },
-      pause() { paused = true; keys.clear(); navigator.stop(); }, resume() { paused = false; last = 0; },
-      destroy() { destroyed = true; cancelAnimationFrame(raf); keys.clear(); document.removeEventListener('keydown', keyDown); document.removeEventListener('keyup', keyUp); window.removeEventListener('blur', clearKeys); scene.removeEventListener('pointerdown', pointerDown); scene.removeEventListener('pointerup', pointerUp); scene.removeEventListener('pointercancel', clearKeys); }
+      pause() { paused = true; clearKeys(); navigator.stop(); }, resume() { paused = false; last = 0; },
+      destroy() { destroyed = true; cancelAnimationFrame(raf); clearKeys(); document.removeEventListener('keydown', keyDown); document.removeEventListener('keyup', keyUp); window.removeEventListener('blur', clearKeys); scene.removeEventListener('pointerdown', pointerDown); scene.removeEventListener('pointerup', pointerUp); scene.removeEventListener('pointercancel', pointerUp); scene.removeEventListener('lostpointercapture', pointerUp); }
     };
   }
   const api = { ROOM, OBJECTS, OBSTACLES, walkable, clearLine, findPath, createNavigator, mount };

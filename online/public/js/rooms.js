@@ -14,6 +14,25 @@
   const mine = () => room?.players.find(p => p.id === room.you);
   const isHost = () => room?.you === room?.hostId;
   const sound = cue => view?.sound(cue);
+  function invitationCode() {
+    const code = new URLSearchParams(location.search).get('room')?.trim().toUpperCase() || '';
+    return /^[A-Z2-9]{6}$/.test(code) ? code : '';
+  }
+  function replaceInvitation(code) {
+    try {
+      const url = new URL(location.href);
+      if (!url.searchParams.has('room')) return;
+      if (code) url.searchParams.set('room', code); else url.searchParams.delete('room');
+      history.replaceState(history.state, '', url);
+    } catch (_) {}
+  }
+  function setActive(value) {
+    if (active !== value) { active = value; window.dispatchEvent(new CustomEvent('cipher-room-status', { detail: value })); }
+  }
+  function clearSession() {
+    ticket++; stopPolling(); session = null; room = null; key = ''; busy = false;
+    save(); setActive(false);
+  }
   function save() { try { if (session) sessionStorage.setItem(SESSION, JSON.stringify(session)); else sessionStorage.removeItem(SESSION); } catch (_) {} }
   function status(text, error = false) {
     const el = view?.game.querySelector('#room-feedback');
@@ -26,6 +45,15 @@
     catch (_) { const e = new Error(location.protocol === 'file:' ? 'Main Bareng memerlukan link game online atau server lokal.' : response.status === 404 ? 'API room belum terpasang pada hosting ini. Deploy ulang proyek beserta folder api dan vercel.json.' : 'Server room tidak memberi respons yang valid. Coba lagi sebentar.'); e.status = response.status; throw e; }
     if (!response.ok) { const e = new Error(data.error || 'Koneksi belum berhasil.'); e.status = response.status; throw e; }
     return data;
+  }
+  async function requestWithTimeout(path, body) {
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), 12000);
+    try { return await request(path, body, abort.signal); }
+    catch (error) {
+      if (error.name === 'AbortError') throw new Error('Server terlalu lama merespons. Coba lagi sebentar.');
+      throw error;
+    } finally { clearTimeout(timeout); }
   }
   function setNetwork(ok) {
     const el = view?.game.querySelector('#room-network');
@@ -45,7 +73,7 @@
     } catch (error) {
       if (!mounted || epoch !== ticket) return;
       failures++; setNetwork(false);
-      if ([401, 404, 410].includes(error.status)) { session = null; room = null; save(); key = ''; renderEntry(); status(error.message, true); return; }
+      if ([401, 404, 410].includes(error.status)) { clearSession(); renderEntry(); status(error.message, true); return; }
       status('Koneksi terputus. Sedang mencoba kembali; jawaban dan progres tim tetap di server.', true);
     } finally {
       clearTimeout(timeout); if (controller === abort) controller = null;
@@ -61,7 +89,7 @@
     if (previous && previous.stageId !== next.stageId) sound('success');
     if (previous?.phase !== room.phase && ['result', 'finished'].includes(room.phase)) sound('complete');
     if (previous?.phase !== room.phase && room.phase === 'failed') sound('failure');
-    if (active !== true) { active = true; window.dispatchEvent(new CustomEvent('cipher-room-status', { detail: true })); }
+    setActive(true);
   }
   function shell(content, art = 'hub') {
     cancelAnimationFrame(crewFrame); crewFrame = null;
@@ -69,7 +97,7 @@
     view.mount(art);
   }
   function renderEntry() {
-    let invitation = ''; try { invitation = new URL(location.href).searchParams.get('room') || ''; } catch (_) {}
+    const invitation = invitationCode();
     if (session) {
       shell(`<div class="room-entry"><p class="eyebrow text-cyan">KANAL TERSIMPAN / ${esc(session.code)}</p><h1>Kembali ke tim.</h1><p>Menyambungkan kembali sesi di perangkat ini…</p><p id="room-feedback" class="feedback" role="status" aria-live="polite"></p>${button('forget', 'PAKAI SESI BARU')}</div>`); return;
     }
@@ -106,6 +134,9 @@
   }
   function renderRoom() {
     const host = isHost(), p = mine();
+    const oldForm = view.game.querySelector('#room-answer');
+    const draft = oldForm?.dataset.stage === room.stageId ? Array.from(oldForm.elements, input =>
+      ({ name: input.name, value: input.value, type: input.type, checked: input.checked })).filter(input => input.name) : [];
     const sidebar = `<aside class="room-sidebar"><div class="room-code-block"><span class="eyebrow">KODE ROOM</span><strong>${esc(room.code)}</strong><span id="room-count">${room.players.length}/4 OPERATOR</span>${button('copy', 'SALIN UNDANGAN')}</div><div id="room-roster" class="room-roster">${rosterHTML()}</div><div class="room-team-stats"><span><small>NYAWA TIM</small><b id="room-health">${'♥'.repeat(room.health)}${'♡'.repeat(3 - room.health)}</b></span><span><small>SKOR TIM</small><b id="room-total">${room.total} PTS</b></span></div><details class="room-guide"><summary>CARA MAIN +</summary><p>Semua tekan Siap, lalu host mulai misi. Setiap pemain mengerjakan paket sendiri. Setelah semua benar, tahap berikutnya terbuka. Jawaban salah mengurangi 1 dari 3 nyawa tim. Hint mengurangi 25 poin tim. Tanpa timer.</p></details><p class="room-save-note">Refresh halaman untuk menyambung kembali. Sesi room tersimpan di tab ini; campaign solo tetap aman.</p></aside>`;
     let main = '';
     if (room.phase === 'lobby') main = `<div class="room-mission-head"><p class="eyebrow text-cyan">THE SAFEHOUSE / TEAM ASSEMBLY</p><h1>Empat peran. Satu tujuan.</h1><p>Bangun timmu untuk memulihkan Novaris. Pilih operator yang masih tersedia, lalu tekan Siap. Setiap orang memegang bagian misi yang berbeda.</p></div>${operatorPicker()}<div class="room-rules"><p><b>6 distrik / 30 tahap</b> / kata, angka, pilihan, dan urutan tugas diacak setiap sesi.</p><p><b>Tugas berganti tiap tahap</b> / enkripsi, dekripsi, perbaikan, pemilihan paket, komposisi, dan kalibrasi.</p><p><b>Satu hasil tim</b> / distrik pulih setelah seluruh anggota menyelesaikan tugas.</p></div><div class="room-action-row">${button('ready', p.ready ? '✓ KAMU SUDAH SIAP / BATAL' : 'SAYA SIAP', !p.ready)}${host ? button('start', 'MULAI MISI →', true, 'id="room-start"') : '<span class="room-host-note">Host akan memulai setelah semua siap.</span>'}</div><p id="room-ready-note" class="room-host-note"></p>${footer()}`;
@@ -118,6 +149,15 @@
     shell(`<div class="room-layout">${sidebar}<section class="room-main">${main}<div class="room-channel-log"><p class="eyebrow">CHANNEL LOG / LIVE</p><ol id="room-events"></ol></div>${host && room.phase !== 'lobby' && room.phase !== 'finished' ? button('resetLobby', 'BUKA LOBBY BARU / RESET PROGRES') : ''}</section></div>`, room.phase === 'playing' || room.phase === 'failed' ? 'terminal' : 'hub');
     window.CipherAudio?.setScene(room.phase === 'playing' ? 'puzzle' : room.phase === 'lobby' ? 'hub' : room.phase === 'failed' ? 'failed' : 'result');
     updateLive();
+    const newForm = view.game.querySelector('#room-answer');
+    if (newForm && draft.length) {
+      for (const input of newForm.elements) {
+        const saved = draft.find(item => item.name === input.name && item.type === input.type && (input.type !== 'radio' || item.value === input.value));
+        if (!saved) continue;
+        if (input.type === 'radio') input.checked = saved.checked;
+        else input.value = saved.value;
+      }
+    }
     animateOperators();
   }
   function challengeHTML(c) {
@@ -130,7 +170,7 @@
     const fn = c.kind === 'composition' ? `f(x) = ${c.f.a}x + ${c.f.b} · g(x) = ${c.g.a}x + ${c.g.b}` : c.kind === 'calibrate' ? 'y = ax + b / tentukan a dan b' : c.kind === 'decode' ? `E⁻¹(y) = (y − ${c.fn.b}) / ${c.fn.a}` : `E(x) = ${c.fn.a}x + ${c.fn.b}`;
     const reference = c.kind === 'calibrate' ? 'Gunakan dua pasangan (x, y) dari pengukuran mesin.' : c.kind === 'composition' ? 'URUTAN: g TERLEBIH DAHULU, LALU f.' : 'A = 1 · B = 2 · … · Z = 26';
     const alphabet = ['calibrate', 'composition'].includes(c.kind) ? '' : `<details class="room-alphabet"><summary>LIHAT NOMOR HURUF +</summary><p>${Array.from({ length: 26 }, (_, i) => `${String.fromCharCode(65 + i)}=${i + 1}`).join(' · ')}</p></details>`;
-    return `<div class="room-terminal"><div class="terminal-chrome"><span>PAKET PRIBADI / ${esc(mine().name)}</span><div class="terminal-leds"><i></i><i></i><i></i></div></div><div class="room-terminal-content"><p class="eyebrow text-cyan">${c.type}</p><div class="function-strip">${fn}<small>${reference}</small></div><form id="room-answer" novalidate>${fields}<div class="room-action-row"><button type="submit" class="button primary">KIRIM JAWABAN →</button>${button('hint', mine().hinted ? 'HINT TERBUKA' : 'HINT / −25 POIN TIM', false, mine().hinted ? 'disabled' : '')}</div></form>${c.hint ? `<div class="hint-message"><small>ARIA / PETUNJUK PAKETMU</small>${esc(c.hint)}</div>` : ''}${alphabet}</div></div>`;
+    return `<div class="room-terminal"><div class="terminal-chrome"><span>PAKET PRIBADI / ${esc(mine().name)}</span><div class="terminal-leds"><i></i><i></i><i></i></div></div><div class="room-terminal-content"><p class="eyebrow text-cyan">${c.type}</p><div class="function-strip">${fn}<small>${reference}</small></div><form id="room-answer" data-stage="${esc(room.stageId)}" novalidate>${fields}<div class="room-action-row"><button type="submit" class="button primary">KIRIM JAWABAN →</button>${button('hint', mine().hinted ? 'HINT TERBUKA' : 'HINT / −25 POIN TIM', false, mine().hinted ? 'disabled' : '')}</div></form>${c.hint ? `<div class="hint-message"><small>ARIA / PETUNJUK PAKETMU</small>${esc(c.hint)}</div>` : ''}${alphabet}</div></div>`;
   }
   function updateLive() {
     if (!view || !room) return;
@@ -159,14 +199,22 @@
     if (!session || busy) return;
     busy = true; updateLive(); const epoch = ticket;
     try {
-      const result = await request(`/api/rooms/${session.code}/command`, { action, requestId: nonce(), stageId: room.stageId, ...extra }, AbortSignal.timeout(12000));
+      const result = await requestWithTimeout(`/api/rooms/${session.code}/command`, { action, requestId: nonce(), stageId: room.stageId, ...extra });
       if (!mounted || ticket !== epoch) return;
-      if (action === 'leave') { session = null; room = null; save(); exit(); return; }
+      if (action === 'leave') { clearSession(); replaceInvitation(''); exit(); return; }
       failures = 0; receive(result.room); status(result.message || '', result.correct === false);
       if (result.correct !== undefined) sound(result.correct ? 'success' : 'error');
       if (action === 'hint') sound('hint');
-    } catch (error) { if (mounted && ticket === epoch) status(error.message || 'Koneksi terputus. Coba lagi.', true); }
-    finally { busy = false; if (mounted && room) updateLive(); }
+    } catch (error) {
+      if (!mounted || ticket !== epoch) return;
+      if ([401, 404, 410].includes(error.status)) {
+        clearSession();
+        if (action === 'leave') { replaceInvitation(''); exit(); return; }
+        renderEntry();
+      }
+      status(error.message || 'Koneksi terputus. Coba lagi.', true);
+    }
+    finally { if (mounted && ticket === epoch) { busy = false; if (room) updateLive(); } }
   }
   async function enter(form, intent) {
     if (busy) return;
@@ -177,11 +225,11 @@
     for (const el of form.querySelectorAll('button')) el.disabled = true;
     status(intent === 'join' ? 'Menghubungkan ke room…' : 'Membuka kanal tim…');
     try {
-      const result = await request(intent === 'join' ? `/api/rooms/${code}/join` : '/api/rooms/create', { name }, AbortSignal.timeout(12000));
+      const result = await requestWithTimeout(intent === 'join' ? `/api/rooms/${code}/join` : '/api/rooms/create', { name });
       if (!mounted || epoch !== ticket) return;
-      session = { code: result.room.code, secret: result.secret }; save(); sound('confirm'); failures = 0; receive(result.room); poll();
+      session = { code: result.room.code, secret: result.secret }; replaceInvitation(session.code); save(); sound('confirm'); failures = 0; receive(result.room); poll();
     } catch (error) { if (mounted && epoch === ticket) { status(error.message, true); for (const el of form.querySelectorAll('button')) el.disabled = false; } }
-    finally { busy = false; if (mounted && room) updateLive(); }
+    finally { if (mounted && ticket === epoch) { busy = false; if (room) updateLive(); } }
   }
   async function copyInvitation() {
     const url = new URL(networkInfo?.shareUrl || location.href); url.search = ''; url.searchParams.set('room', room.code); url.hash = '';
@@ -192,8 +240,8 @@
   function exit() { const callback = view?.exit; destroy(); callback?.(); }
   function destroy() {
     cancelAnimationFrame(crewFrame); crewFrame = null;
-    mounted = false; ticket++; stopPolling(); view?.game.removeEventListener('click', onClick); view?.game.removeEventListener('submit', onSubmit); view = null; key = ''; busy = false;
-    if (active) { active = false; window.dispatchEvent(new CustomEvent('cipher-room-status', { detail: false })); }
+    mounted = false; ticket++; stopPolling(); view?.game.removeEventListener('click', onClick); view?.game.removeEventListener('submit', onSubmit); view?.game.removeEventListener('keydown', onKeyDown); view = null; key = ''; busy = false;
+    setActive(false);
   }
   function onClick(event) {
     const el = event.target.closest('[data-room-action]'); if (!el || el.disabled) return;
@@ -203,7 +251,7 @@
       if (!session) return exit();
       return view.confirm('KELUAR DARI ROOM?', 'Kamu akan meninggalkan tim. Jika ingin menyambung lagi tanpa keluar, cukup refresh halaman.', 'KELUAR ROOM', () => send('leave'));
     }
-    if (action === 'forget') { session = null; room = null; save(); stopPolling(); renderEntry(); return; }
+    if (action === 'forget') { clearSession(); renderEntry(); return; }
     if (action === 'resetLobby' || action === 'lobby') return view.confirm('BUKA LOBBY BARU?', 'Progres sesi tim akan direset agar pemain dapat bergabung untuk permainan baru.', 'BUKA LOBBY', () => send('lobby'));
     if (action === 'ready') return send('ready', { ready: !mine().ready });
     if (action === 'role') return send('role', { role: el.dataset.role });
@@ -213,16 +261,25 @@
   function onSubmit(event) {
     if (!['room-entry-form', 'room-answer'].includes(event.target.id)) return;
     event.preventDefault();
-    if (event.target.id === 'room-entry-form') return enter(event.target, event.submitter?.value || 'create');
+    if (event.target.id === 'room-entry-form') return enter(event.target, event.submitter?.value || (String(new FormData(event.target).get('code') || '').trim() ? 'join' : 'create'));
     try { send('answer', { answer: parseAnswer(event.target) }); } catch (error) { status(error.message, true); }
+  }
+  function onKeyDown(event) {
+    if (event.key !== 'Enter' || event.isComposing || event.target.id !== 'room-code' || !event.target.form) return;
+    event.preventDefault();
+    return enter(event.target.form, 'join');
   }
   function mount(options) {
     destroy(); mounted = true; ticket++; view = options; room = null; key = ''; failures = 0;
     try { session = JSON.parse(sessionStorage.getItem(SESSION)); if (!session || !/^[A-Z2-9]{6}$/.test(session.code) || typeof session.secret !== 'string') session = null; } catch (_) { session = null; }
-    view.game.addEventListener('click', onClick); view.game.addEventListener('submit', onSubmit); renderEntry();
+    const invitation = invitationCode();
+    if (invitation && session?.code !== invitation) session = null;
+    networkInfo = null;
+    const epoch = ticket;
+    view.game.addEventListener('click', onClick); view.game.addEventListener('submit', onSubmit); view.game.addEventListener('keydown', onKeyDown); renderEntry();
     if (session) poll();
-    fetch('/api/health', { cache: 'no-store' }).then(r => r.json()).then(data => { networkInfo = data; }).catch(() => {});
+    fetch('/api/health', { cache: 'no-store' }).then(r => r.json()).then(data => { if (mounted && ticket === epoch && data?.ok) networkInfo = data; }).catch(() => {});
   }
   const hasSavedSession = () => { try { const saved = JSON.parse(sessionStorage.getItem(SESSION)); return !!saved && /^[A-Z2-9]{6}$/.test(saved.code) && typeof saved.secret === 'string'; } catch (_) { return false; } };
-  window.CipherRooms = { mount, destroy, isActive: () => mounted, hasRoom: () => !!session, hasSavedSession, leave: () => view?.game.querySelector('[data-room-action="exit"]')?.click() };
+  window.CipherRooms = { mount, destroy, isActive: () => mounted, hasRoom: () => !!session, hasSavedSession, hasInvitation: () => !!invitationCode(), leave: () => view?.game.querySelector('[data-room-action="exit"]')?.click() };
 })();

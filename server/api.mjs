@@ -42,6 +42,9 @@ export async function handleAPI(request, store) {
     if (!match) throw new RoomError('Room tidak ditemukan. Periksa kode 6 karakter.', 404);
     for (let attempt = 0; attempt < 12; attempt++) {
       const stored = await store.read(match[1]); if (!stored) throw new RoomError('Room tidak ditemukan atau server sudah direset.', 404);
+      // A retry may have waited behind newer writes. Use the time of the
+      // successful attempt so presence and room expiry cannot move backwards.
+      const now = Math.max(Date.now(), stored.room.updated);
       const room = stored.room; let player, reply;
       if (match[2] === 'join') player = joinRoom(room, input.name, now);
       else {

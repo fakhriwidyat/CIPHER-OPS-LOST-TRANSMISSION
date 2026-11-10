@@ -39,3 +39,15 @@ test('touch directions stop on pointer release and cleanup removes owned listene
 test('E away from an object explains how to interact instead of changing screens', () => {
   const app = setup(); app.key('keydown', 'e'); assert.equal(app.hints(), 1); app.controller.destroy();
 });
+test('losing touch capture stops its direction even when the finger is outside the button', () => {
+  const app = setup();
+  const button = { dataset: { move: 'right' }, setPointerCapture() {} };
+  const start = app.pose().x;
+  app.events.get('scene:pointerdown')({ button: 0, pointerId: 3, target: { closest: () => button }, preventDefault() {} });
+  app.tick(12);
+  assert.ok(app.pose().x > start);
+  app.events.get('scene:lostpointercapture')({ pointerId: 3, target: { closest: () => null } });
+  app.tick(30); const settled = app.pose().x;
+  app.tick(20); assert.equal(app.pose().x, settled);
+  app.controller.destroy();
+});

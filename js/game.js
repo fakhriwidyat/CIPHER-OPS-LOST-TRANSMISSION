@@ -457,5 +457,5 @@
   document.addEventListener('visibilitychange', () => window.CipherAudio?.setVisible(!document.hidden));
   window.addEventListener?.('cipher-room-status', event => { const indicator = document.querySelector('.local-indicator'); if (indicator) indicator.innerHTML = '<i></i> ' + (event.detail ? 'TEAM SESSION / LIVE' : 'LOCAL SESSION'); });
   load(); if (window.CipherAudio) { window.CipherAudio.setStatusListener(audioStatus); window.CipherAudio.setVisible(!document.hidden); } settingsUI(); navigate('menu');
-  if (window.CipherRooms && (/^\?room=[A-Z2-9]{6}$/.test(window.location?.search || '') || window.CipherRooms.hasSavedSession())) navigate('online');
+  if (window.CipherRooms && (window.CipherRooms.hasInvitation?.() || window.CipherRooms.hasSavedSession())) navigate('online');
 })();
