@@ -35,7 +35,7 @@
   function people(target, time = 0, showPlayerLabel = false) {
     const nearAria = Math.hypot(actor.x - 697, actor.y - 365) < 110;
     const ariaDirection = nearAria ? actor.x < 697 ? 'left' : 'right' : 'down';
-    CharacterArt.draw(target, 'aria', { x: 700, y: 369, scale: actor.scale * .93, aspect: actor.aspect, direction: ariaDirection, time, reduced, wave: interactive && nearAria && time % 6 < 1 });
+    if (mode !== 'riverside') CharacterArt.draw(target, 'aria', { x: 700, y: 369, scale: actor.scale * .93, aspect: actor.aspect, direction: ariaDirection, time, reduced, wave: interactive && nearAria && time % 6 < 1 });
     if (interactive && actor.destination) {
       const { x, y } = actor.destination;
       target.fillStyle = '#ffbf6999';
@@ -182,18 +182,35 @@
     r(0, 0, W, H, '#080f1dcc');
     glow(480, 255, 360, '#22495538');
   }
-  function redraw() { seed = 2149; c.clearRect(0, 0, W, H); ({ city, hub, map, terminal, ending: city }[mode] || city)(); }
+  function riverside() {
+    r(0, 0, W, H, '#0f1b2c');
+    for (let x = 0; x < W; x += 46) { const height = 36 + random() * 110; building(x, 235 - height, 39, height, 0); }
+    r(0, 236, W, 4, '#3b5867'); r(0, 240, W, 140, '#102e43');
+    for (let i = 0; i < 125; i++) r(random() * W, 245 + random() * 128, 4 + random() * 53, 1 + random() * 3, i % 4 ? '#25455a' : '#40616d');
+    r(58, 345, 846, 150, '#294254'); r(58, 345, 846, 4, '#688289'); r(58, 493, 846, 5, '#79918b');
+    for (let y = 362; y < 492; y += 19) r(58, y, 846, 1, '#182e40');
+    for (let x = 75; x < 902; x += 48) r(x, 345, 3, 10, '#9c8260');
+    r(348, 300, 140, 91, '#0e1e2b'); r(350, 298, 134, 7, '#6f8c91');
+    r(364, 311, 106, 53, '#395867'); r(369, 315, 96, 41, '#153344');
+    for (let i = 0; i < 4; i++) r(378, 321 + i * 7, 63 - i * 8, 2, '#71ddd3');
+    text('TERMINAL / 02', 369, 379, '#e5b37b', 9);
+    r(544, 249, 198, 77, '#162e3e'); r(548, 253, 189, 69, '#233e4e');
+    line([[564, 305], [607, 305], [607, 278], [676, 278], [676, 292], [721, 292]], '#72bbbd', 2);
+    r(777, 384, 62, 54, '#354b55'); r(777, 384, 62, 5, '#76908c'); r(787, 398, 42, 22, '#243844');
+    text('RIVERSIDE / QUAI 02', 104, 397, '#a4b9ba', 10);
+  }
+  function redraw() { seed = 2149; c.clearRect(0, 0, W, H); ({ city, hub, map, terminal, riverside, ending: city }[mode] || city)(); }
   function animate() {
     if (!canvas || !canvas.isConnected) return;
     ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(base, 0, 0);
-    if (mode === 'hub') people(ctx, reduced ? 0 : actor.visualTime ?? frame / 60, interactive);
+    if (mode === 'hub' || mode === 'riverside') people(ctx, reduced ? 0 : actor.visualTime ?? frame / 60, interactive);
     if ((mode === 'city' || mode === 'ending') && !reduced) {
       ctx.strokeStyle = '#91b5c125'; ctx.lineWidth = 1;
       for (let i = 0; i < 100; i++) { const x = (i * 97 + frame * 1.1) % W, y = (i * 67 + frame * 4) % H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 2, y + 7); ctx.stroke(); }
       if (frame % 150 < 75) { ctx.fillStyle = '#e0a1b8'; ctx.fillRect(730, 39, 5, 2); }
     }
     if ((mode === 'hub' || mode === 'terminal') && !reduced && frame % 120 < 60) { ctx.fillStyle = '#6effa8'; ctx.fillRect(357, 331, 3, 3); }
-    frame++; if ((!reduced || interactive) && !(mode === 'hub' && interactive)) raf = requestAnimationFrame(animate);
+    frame++; if ((!reduced || interactive) && !((mode === 'hub' || mode === 'riverside') && interactive)) raf = requestAnimationFrame(animate);
   }
   function mount(element, scene, options = {}) {
     cancelAnimationFrame(raf); canvas = element; if (!canvas) return;
@@ -210,6 +227,6 @@
   }
   // Navigation drives the interactive room's paint in the same animation frame;
   // a second independent RAF previously displayed the preceding movement pose.
-  function setActor(pose) { actor = { ...actor, ...pose }; if (mode === 'hub' && interactive && canvas?.isConnected) animate(); }
+  function setActor(pose) { actor = { ...actor, ...pose }; if ((mode === 'hub' || mode === 'riverside') && interactive && canvas?.isConnected) animate(); }
   window.PixelArt = { mount, portrait, setActor };
 })();

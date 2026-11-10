@@ -1,5 +1,6 @@
 // Shared authoritative room rules. No browser, network, or storage dependencies.
 import { OPERATORS, operatorFor, assignmentFor, assignmentAnswer, explainAssignment, TEAM_GOALS, stageCount } from './assignments.mjs';
+import { beginField, fieldCommand, fieldSnapshot, updatePose } from './field.mjs';
 export class RoomError extends Error {
   constructor(message, status = 400) { super(message); this.status = status; }
 }
@@ -13,14 +14,17 @@ const same = (a, b) => Array.isArray(a) && a.length === b.length && a.every((n, 
 const points = room => Math.max(0, 100 + (room.errors === 0 ? 50 : 0) - room.errors * 10 - room.hints * 25);
 const token = () => crypto.randomUUID().replaceAll('-', '');
 const connected = (p, now) => now - p.seen < ONLINE_TIMEOUT;
+export const isFieldMode = room => room.mode === 'exploration' || room.mode === 'training';
+const mapCount = room => room.mode === 'training' ? 2 : DISTRICTS.length;
 export function callsign(value) {
   const name = String(value || '').trim().toUpperCase();
   fail(!/^[A-Z0-9 _-]{1,16}$/.test(name), 'Callsign: gunakan 1–16 huruf, angka, spasi, - atau _.');
   return name;
 }
-export function createRoom(code, name, now = Date.now()) {
+export function createRoom(code, name, now = Date.now(), mode = 'classic') {
+  fail(!['classic', 'exploration', 'training'].includes(mode), 'Mode room tidak dikenal.');
   const player = makePlayer(name, 0, now);
-  const room = { code, hostId: player.id, created: now, updated: now, phase: 'lobby', challengeVersion: 3, seed: crypto.getRandomValues(new Uint32Array(1))[0], round: 0, mission: 0, stage: 0, stageId: token(), health: 3, errors: 0, hints: 0, total: 0, records: [], players: [player], events: [] };
+  const room = { code, mode, hostId: player.id, created: now, updated: now, phase: 'lobby', challengeVersion: 3, seed: crypto.getRandomValues(new Uint32Array(1))[0], round: 0, mission: 0, stage: 0, stageId: token(), health: 3, errors: 0, hints: 0, total: 0, records: [], players: [player], events: [] };
   log(room, `${player.name} membuka kanal tim.`, now);
   return { room, player };
 }
@@ -93,19 +97,24 @@ function resetStage(room) {
 }
 function startMission(room, now) {
   room.phase = 'playing'; room.stage = 0; room.health = 3; room.errors = 0; room.hints = 0; resetStage(room);
+  if (isFieldMode(room)) beginField(room, now);
   log(room, `M${room.mission + 1} / ${TITLES[room.mission]} dimulai.`, now);
 }
+function finishMission(room, now) {
+  const score = points(room); room.total += score; room.records.push({ mission: room.mission, score }); room.phase = room.mission + 1 === mapCount(room) ? 'finished' : 'result';
+  if (room.phase === 'finished' && room.mode === 'training') room.completedAt = new Date(now).toISOString();
+  log(room, `${DISTRICTS[room.mission]} tersambung. +${score} poin tim.`, now);
+}
 function finishStage(room, now) {
-  if (paused(room, now) || !room.players.every(p => p.solved)) return;
+  if (isFieldMode(room) || paused(room, now) || !room.players.every(p => p.solved)) return;
   if (room.stage + 1 < stageCount(room)) { room.stage++; resetStage(room); log(room, 'Semua paket terverifikasi. Tahap ' + (room.stage + 1) + '/' + stageCount(room) + ' terbuka.', now); }
-  else {
-    const score = points(room); room.total += score; room.records.push({ mission: room.mission, score }); room.phase = room.mission === 5 ? 'finished' : 'result';
-    log(room, `${DISTRICTS[room.mission]} tersambung. +${score} poin tim.`, now);
-  }
+  else finishMission(room, now);
 }
 export function command(room, p, input, now = Date.now()) {
   p.seen = now; maintain(room, now); room.updated = now;
   const { action, requestId } = input;
+  const inField = isFieldMode(room) && room.phase === 'playing';
+  if (inField && input.stageId === room.stageId && input.pose) updatePose(room, p, input.pose, now);
   if (action === 'poll') { if (room.phase === 'playing') finishStage(room, now); return { message: '' }; }
   fail(typeof requestId !== 'string' || !/^[a-zA-Z0-9_-]{8,80}$/.test(requestId), 'ID permintaan tidak valid.');
   const previous = p.receipts.find(r => r.id === requestId); if (previous) return previous.reply;
@@ -123,7 +132,13 @@ export function command(room, p, input, now = Date.now()) {
     fail(paused(room, now) || !room.players.every(q => q.ready), 'Butuh 2–4 pemain terhubung dan semuanya siap.', 409);
     room.challengeVersion ??= 3; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0];
     startMission(room, now);
+  } else if (typeof action === 'string' && action.startsWith('field-')) {
+    fail(!inField || input.stageId !== room.stageId, 'Distrik sudah berganti. Buka panel pada peta yang baru.', 409);
+    const { finish, ...result } = fieldCommand(room, p, input, now, fail, log);
+    if (finish) finishMission(room, now);
+    reply = result;
   } else if (action === 'answer' || action === 'hint') {
+    fail(isFieldMode(room), 'Buka panel distrik untuk menjawab tugas.', 409);
     fail(room.phase !== 'playing' || input.stageId !== room.stageId, 'Tahap sudah berubah. Jawaban ini tidak mengurangi nyawa.', 409);
     fail(paused(room, now), 'Misi dijeda. Tunggu teman tersambung kembali.', 409);
     fail(p.solved, 'Paketmu sudah benar. Tunggu teman menyelesaikan paket mereka.', 409);
@@ -138,9 +153,9 @@ export function command(room, p, input, now = Date.now()) {
       if (correct) { p.solved = true; log(room, `${p.name}: paket terverifikasi.`, now); finishStage(room, now); reply = { correct: true, message: 'Jawaban benar. Paketmu sudah terverifikasi!' }; }
       else { room.health--; room.errors++; log(room, `${p.name}: sinyal belum cocok. Sisa ${room.health} nyawa tim.`, now); if (room.health === 0) room.phase = 'failed'; reply = { correct: false, message: 'Belum tepat. Periksa lagi perhitungannya; satu nyawa tim berkurang.' }; }
     }
-  } else if (action === 'next') { hostOnly(); fail(room.phase !== 'result', 'Misi belum selesai.', 409); fail(paused(room, now), 'Tunggu semua pemain tersambung.', 409); room.mission++; startMission(room, now); }
+  } else if (action === 'next') { hostOnly(); fail(room.phase !== 'result', 'Misi belum selesai.', 409); fail(isFieldMode(room) ? room.players.filter(q => connected(q, now)).length < 2 : paused(room, now), 'Tunggu pemain tersambung.', 409); room.mission++; startMission(room, now); }
   else if (action === 'retry') { hostOnly(); fail(room.phase !== 'failed', 'Retry tersedia ketika nyawa habis.', 409); fail(paused(room, now), 'Tunggu semua pemain tersambung.', 409); startMission(room, now); }
-  else if (action === 'lobby') { hostOnly(); room.phase = 'lobby'; room.challengeVersion = 3; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0]; room.round = (room.round || 0) + 1; room.mission = 0; room.total = 0; room.records = []; resetStage(room); for (const q of room.players) q.ready = false; log(room, 'Host membuka sesi baru. Progres tim direset; paket soal baru disiapkan.', now); }
+  else if (action === 'lobby') { hostOnly(); room.phase = 'lobby'; room.challengeVersion = 3; room.seed ??= crypto.getRandomValues(new Uint32Array(1))[0]; room.round = (room.round || 0) + 1; room.mission = 0; room.total = 0; room.records = []; delete room.field; delete room.completedAt; resetStage(room); for (const q of room.players) q.ready = false; log(room, 'Host membuka sesi baru. Progres tim direset; paket soal baru disiapkan.', now); }
   else if (action === 'remove') {
     hostOnly(); const target = room.players.find(q => q.id === input.playerId);
     fail(!target || target.id === p.id || connected(target, now), 'Hanya pemain yang terputus yang dapat dikeluarkan.', 409);
@@ -153,14 +168,17 @@ export function command(room, p, input, now = Date.now()) {
   p.receipts.push({ id: requestId, reply }); p.receipts = p.receipts.slice(-20); return reply;
 }
 export function snapshot(room, p, now = Date.now()) {
-  const c = room.phase === 'playing' ? challengeFor(room, p) : null;
+  const exploration = isFieldMode(room);
+  const c = room.phase === 'playing' && !exploration ? challengeFor(room, p) : null;
   if (c && !p.hinted) delete c.hint;
   return {
-    code: room.code, you: p.id, hostId: room.hostId, phase: room.phase, mission: room.mission, stage: room.stage, stageId: room.stageId,
-    title: TITLES[room.mission], district: DISTRICTS[room.mission], stages: stageCount(room),
+    code: room.code, mode: room.mode || 'classic', you: p.id, hostId: room.hostId, phase: room.phase, mission: room.mission, stage: room.stage, stageId: room.stageId,
+    title: TITLES[room.mission], district: DISTRICTS[room.mission], stages: stageCount(room), mapCount: mapCount(room),
     health: room.health, errors: room.errors, hints: room.hints, total: room.total, potential: points(room), records: room.records,
     paused: room.phase !== 'lobby' && paused(room, now), challenge: c, events: room.events, operators: OPERATORS, teamGoal: TEAM_GOALS[room.mission],
-    debrief: room.challengeVersion >= 2 && ['result', 'finished'].includes(room.phase) ? { task: assignmentFor(room, p).task, explanation: explainAssignment(assignmentFor(room, p)) } : null,
-    players: room.players.map(q => ({ id: q.id, name: q.name, slot: q.slot, role: operatorFor(q).id, task: room.challengeVersion >= 2 ? assignmentFor(room, q).task : 'Verifikasi paket', host: q.id === room.hostId, ready: q.ready, solved: q.solved, hinted: q.hinted, connected: connected(q, now) }))
+    debrief: exploration ? room.field?.result || null : room.challengeVersion >= 2 && ['result', 'finished'].includes(room.phase) ? { task: assignmentFor(room, p).task, explanation: explainAssignment(assignmentFor(room, p)) } : null,
+    ...(exploration ? { field: fieldSnapshot(room, p, now) } : {}),
+    ...(room.mode === 'training' && room.phase === 'finished' ? { completedAt: room.completedAt } : {}),
+    players: room.players.map(q => ({ id: q.id, name: q.name, slot: q.slot, role: operatorFor(q).id, task: !exploration && room.challengeVersion >= 2 ? assignmentFor(room, q).task : 'Verifikasi paket', host: q.id === room.hostId, ready: q.ready, solved: q.solved, hinted: q.hinted, connected: connected(q, now) }))
   };
 }

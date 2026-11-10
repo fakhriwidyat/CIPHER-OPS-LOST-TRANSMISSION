@@ -10,6 +10,7 @@
   let view = null, room = null, session = null, timer = null, controller = null, busy = false, mounted = false, key = '', failures = 0, ticket = 0;
   let networkInfo = null, active = false;
   let crewFrame = null;
+  let field = null;
   const nonce = () => window.crypto?.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2);
   const mine = () => room?.players.find(p => p.id === room.you);
   const isHost = () => room?.you === room?.hostId;
@@ -37,6 +38,8 @@
   function status(text, error = false) {
     const el = view?.game.querySelector('#room-feedback');
     if (el) { el.textContent = text; el.classList.toggle('error', error); }
+    const panel = view?.game.querySelector('.field-panel[open] #field-panel-feedback');
+    if (panel) { panel.textContent = text; panel.classList.toggle('error', error); }
   }
   async function request(path, body = {}, signal) {
     const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(session ? { Authorization: 'Bearer ' + session.secret } : {}) }, body: JSON.stringify(body), signal, cache: 'no-store' });
@@ -67,7 +70,7 @@
     const epoch = ticket;
     const abort = new AbortController(); controller = abort; const timeout = setTimeout(() => abort.abort(), 9000);
     try {
-      const data = await request(`/api/rooms/${session.code}/command`, { action: 'poll' }, abort.signal);
+      const data = await request(`/api/rooms/${session.code}/command`, { action: 'poll', ...fieldPose() }, abort.signal);
       if (!mounted || epoch !== ticket) return;
       const recovering = failures > 0; failures = 0; receive(data.room); setNetwork(true); if (recovering) status('Koneksi pulih. Kamu kembali di kanal tim.');
     } catch (error) {
@@ -77,13 +80,14 @@
       status('Koneksi terputus. Sedang mencoba kembali; jawaban dan progres tim tetap di server.', true);
     } finally {
       clearTimeout(timeout); if (controller === abort) controller = null;
-      if (mounted && session && epoch === ticket) timer = setTimeout(poll, Math.min(5000, 1200 + failures * 650));
+      if (mounted && session && epoch === ticket) timer = setTimeout(poll, Math.min(5000, (field && !failures && !document.hidden ? 420 : 1200) + failures * 650));
     }
   }
   function receive(next) {
     if (room && room.code === next.code && room.revision > next.revision) return;
     const previous = room; room = next;
-    const nextKey = [room.code, room.phase, room.stageId, mine()?.role, mine()?.solved, mine()?.hinted, mine()?.ready, isHost(), room.phase === 'lobby' ? room.players.map(p => p.id + p.role).join(',') : ''].join(':');
+    const nextKey = room.field ? [room.code, room.phase, room.stageId].join(':') :
+      [room.code, room.phase, room.stageId, mine()?.role, mine()?.solved, mine()?.hinted, mine()?.ready, isHost(), room.phase === 'lobby' ? room.players.map(p => p.id + p.role).join(',') : ''].join(':');
     if (nextKey !== key) { key = nextKey; renderRoom(); }
     else updateLive();
     if (previous && previous.stageId !== next.stageId) sound('success');
@@ -91,17 +95,18 @@
     if (previous?.phase !== room.phase && room.phase === 'failed') sound('failure');
     setActive(true);
   }
-  function shell(content, art = 'hub') {
+  function shell(content, art = 'hub', className = '') {
+    field?.destroy(); field = null;
     cancelAnimationFrame(crewFrame); crewFrame = null;
-    view.game.innerHTML = view.scene(`<div class="room-top"><button class="back-button" type="button" data-room-action="exit">← ${room ? 'KELUAR ROOM' : 'MAIN MENU'}</button><div class="scene-title">TEAM CHANNEL<small>2–4 PLAYERS / MULTIPLAYER</small></div><span id="room-network" class="room-network">${room ? '● LIVE / TERSAMBUNG' : 'NOVARIS / CO-OP'}</span></div>${content}`, 'room-scene');
-    view.mount(art);
+    view.game.innerHTML = view.scene(`<div class="room-top"><button class="back-button" type="button" data-room-action="exit">← ${room ? 'KELUAR ROOM' : 'MAIN MENU'}</button><div class="scene-title">${room?.mode === 'training' ? 'OPERASI DUA PETA' : room?.mode === 'exploration' ? 'OPERASI LAPANGAN' : 'TEAM CHANNEL'}<small>2–4 PLAYERS / MULTIPLAYER</small></div><span id="room-network" class="room-network">${room ? '● LIVE / TERSAMBUNG' : 'NOVARIS / CO-OP'}</span></div>${content}`, 'room-scene ' + className);
+    if (art) view.mount(art);
   }
   function renderEntry() {
     const invitation = invitationCode();
     if (session) {
       shell(`<div class="room-entry"><p class="eyebrow text-cyan">KANAL TERSIMPAN / ${esc(session.code)}</p><h1>Kembali ke tim.</h1><p>Menyambungkan kembali sesi di perangkat ini…</p><p id="room-feedback" class="feedback" role="status" aria-live="polite"></p>${button('forget', 'PAKAI SESI BARU')}</div>`); return;
     }
-    shell(`<div class="room-entry"><div class="room-entry-head"><p class="eyebrow text-cyan">SATU KOTA. EMPAT OPERATOR.</p><h1>Masuk satu frekuensi.</h1><p>Temanmu di mana pun. Pecahkan sandi dari layar masing-masing, pulihkan enam distrik bersama.</p></div><div class="room-onboarding"><span><b>01</b> Buat atau gabung room</span><span><b>02</b> Semua tekan Siap</span><span><b>03</b> Host mulai misi</span></div><form id="room-entry-form" novalidate><label class="field-label" for="room-name">CALLSIGN KAMU</label><input id="room-name" name="name" class="text-input" maxlength="16" placeholder="Misalnya: ECHO" autocomplete="nickname" value="${esc(view.callsign === 'RUNNER' ? '' : view.callsign || '')}"><div class="room-entry-columns"><section><p class="eyebrow">BUKA KANAL BARU</p><h2>Ajak timmu.</h2><p>Kamu menjadi host. Bagikan kode room ke maksimal 3 teman.</p><button type="submit" name="intent" value="create" class="button primary">BUAT ROOM <span>＋</span></button></section><section><p class="eyebrow">PUNYA KODE DARI TEMAN?</p><label class="field-label" for="room-code">KODE ROOM / 6 KARAKTER</label><input id="room-code" name="code" class="text-input room-code-input" maxlength="6" placeholder="ABC234" value="${esc(/^[A-Z2-9]{6}$/.test(invitation) ? invitation : '')}" autocomplete="off" autocapitalize="characters" spellcheck="false"><button type="submit" name="intent" value="join" class="button ghost">GABUNG ROOM →</button></section></div><p id="room-feedback" class="feedback" role="status" aria-live="polite">${location.protocol === 'file:' ? 'Mode ini memerlukan server. Buka game melalui link online atau server lokal.' : 'Tidak perlu akun. Callsign dan kode room sudah cukup.'}</p></form><p class="room-fineprint">Mode solo dan co-op satu perangkat tetap tersedia di menu utama.</p></div>`);
+    shell(`<div class="room-entry"><div class="room-entry-head"><p class="eyebrow text-cyan">SATU KOTA. EMPAT OPERATOR.</p><h1>Masuk satu frekuensi.</h1><p>Temanmu di mana pun. Pecahkan sandi dari layar masing-masing dan pulihkan jaringan Novaris bersama.</p></div><div class="room-onboarding"><span><b>01</b> Buat atau gabung room</span><span><b>02</b> Semua tekan Siap</span><span><b>03</b> Host mulai misi</span></div><form id="room-entry-form" novalidate><label class="field-label" for="room-name">CALLSIGN KAMU</label><input id="room-name" name="name" class="text-input" maxlength="16" placeholder="Misalnya: ECHO" autocomplete="nickname" value="${esc(view.callsign === 'RUNNER' ? '' : view.callsign || '')}"><div class="room-entry-columns"><section><p class="eyebrow">BUKA KANAL BARU</p><h2>Ajak timmu.</h2><p>Kamu menjadi host. Bagikan kode room ke maksimal 3 teman.</p><label class="field-label" for="room-mode">MODE PERMAINAN</label><select id="room-mode" name="mode" class="text-input"><option value="training">Operasi 2 Peta + Sertifikat</option><option value="exploration">Eksplorasi 6 Distrik</option><option value="classic">Paket klasik</option></select><button type="submit" name="intent" value="create" class="button primary">BUAT ROOM <span>＋</span></button></section><section><p class="eyebrow">PUNYA KODE DARI TEMAN?</p><label class="field-label" for="room-code">KODE ROOM / 6 KARAKTER</label><input id="room-code" name="code" class="text-input room-code-input" maxlength="6" placeholder="ABC234" value="${esc(/^[A-Z2-9]{6}$/.test(invitation) ? invitation : '')}" autocomplete="off" autocapitalize="characters" spellcheck="false"><button type="submit" name="intent" value="join" class="button ghost">GABUNG ROOM →</button></section></div><p id="room-feedback" class="feedback" role="status" aria-live="polite">${location.protocol === 'file:' ? 'Mode ini memerlukan server. Buka game melalui link online atau server lokal.' : 'Tidak perlu akun. Callsign dan kode room sudah cukup.'}</p></form><p class="room-fineprint">Mode solo dan co-op satu perangkat tetap tersedia di menu utama.</p></div>`);
   }
   function rosterHTML() {
     return Array.from({ length: 4 }, (_, i) => {
@@ -134,17 +139,32 @@
   }
   function renderRoom() {
     const host = isHost(), p = mine();
+    if (room.field) {
+      shell(window.CipherField.markup(room), null, 'field-scene');
+      field = window.CipherField.mount(view.game, room, { send, status, sound });
+      window.CipherAudio?.setScene('hub');
+      updateLive(); return;
+    }
+    const training = room.mode === 'training';
+    const exploring = training || room.mode === 'exploration';
     const oldForm = view.game.querySelector('#room-answer');
     const draft = oldForm?.dataset.stage === room.stageId ? Array.from(oldForm.elements, input =>
       ({ name: input.name, value: input.value, type: input.type, checked: input.checked })).filter(input => input.name) : [];
-    const sidebar = `<aside class="room-sidebar"><div class="room-code-block"><span class="eyebrow">KODE ROOM</span><strong>${esc(room.code)}</strong><span id="room-count">${room.players.length}/4 OPERATOR</span>${button('copy', 'SALIN UNDANGAN')}</div><div id="room-roster" class="room-roster">${rosterHTML()}</div><div class="room-team-stats"><span><small>NYAWA TIM</small><b id="room-health">${'♥'.repeat(room.health)}${'♡'.repeat(3 - room.health)}</b></span><span><small>SKOR TIM</small><b id="room-total">${room.total} PTS</b></span></div><details class="room-guide"><summary>CARA MAIN +</summary><p>Semua tekan Siap, lalu host mulai misi. Setiap pemain mengerjakan paket sendiri. Setelah semua benar, tahap berikutnya terbuka. Jawaban salah mengurangi 1 dari 3 nyawa tim. Hint mengurangi 25 poin tim. Tanpa timer.</p></details><p class="room-save-note">Refresh halaman untuk menyambung kembali. Sesi room tersimpan di tab ini; campaign solo tetap aman.</p></aside>`;
+    const sidebar = `<aside class="room-sidebar"><div class="room-code-block"><span class="eyebrow">KODE ROOM</span><strong>${esc(room.code)}</strong><span id="room-count">${room.players.length}/4 OPERATOR</span>${button('copy', 'SALIN UNDANGAN')}</div><div id="room-roster" class="room-roster">${rosterHTML()}</div><div class="room-team-stats">${exploring ? '' : `<span><small>NYAWA TIM</small><b id="room-health">${'♥'.repeat(room.health)}${'♡'.repeat(3 - room.health)}</b></span>`}<span><small>SKOR TIM</small><b id="room-total">${room.total} PTS</b></span></div><details class="room-guide"><summary>CARA MAIN +</summary><p>${exploring ? 'Jelajahi peta dan pilih panel untuk bekerja. Paket dari tugas awal dipakai tim. Hadapi gangguan lewat perbaikan atau jalur cadangan, lalu aktifkan pemancar.' : 'Semua tekan Siap, lalu host mulai misi. Setiap pemain mengerjakan paket sendiri. Setelah semua benar, tahap berikutnya terbuka. Jawaban salah mengurangi 1 dari 3 nyawa tim. Hint mengurangi 25 poin tim. Tanpa timer.'}</p></details><p class="room-save-note">Refresh halaman untuk menyambung kembali. Sesi room tersimpan di tab ini; campaign solo tetap aman.</p></aside>`;
     let main = '';
-    if (room.phase === 'lobby') main = `<div class="room-mission-head"><p class="eyebrow text-cyan">THE SAFEHOUSE / TEAM ASSEMBLY</p><h1>Empat peran. Satu tujuan.</h1><p>Bangun timmu untuk memulihkan Novaris. Pilih operator yang masih tersedia, lalu tekan Siap. Setiap orang memegang bagian misi yang berbeda.</p></div>${operatorPicker()}<div class="room-rules"><p><b>6 distrik / 30 tahap</b> / kata, angka, pilihan, dan urutan tugas diacak setiap sesi.</p><p><b>Tugas berganti tiap tahap</b> / enkripsi, dekripsi, perbaikan, pemilihan paket, komposisi, dan kalibrasi.</p><p><b>Satu hasil tim</b> / distrik pulih setelah seluruh anggota menyelesaikan tugas.</p></div><div class="room-action-row">${button('ready', p.ready ? '✓ KAMU SUDAH SIAP / BATAL' : 'SAYA SIAP', !p.ready)}${host ? button('start', 'MULAI MISI →', true, 'id="room-start"') : '<span class="room-host-note">Host akan memulai setelah semua siap.</span>'}</div><p id="room-ready-note" class="room-host-note"></p>${footer()}`;
+    if (room.phase === 'lobby') main = `<div class="room-mission-head"><p class="eyebrow text-cyan">THE SAFEHOUSE / ${training ? 'OPERASI DUA PETA' : exploring ? 'EKSPLORASI' : 'PAKET KLASIK'}</p><h1>Empat peran. Satu tujuan.</h1><p>Bangun timmu untuk memulihkan Novaris. Pilih operator yang masih tersedia, lalu tekan Siap. Setiap orang memegang bagian misi yang berbeda.</p></div>${operatorPicker()}<div class="room-rules">${training ?
+      '<p><b>Central Hub → Riverside</b> / tiap peta mencakup fungsi, nonfungsi, invers, dan cipher.</p><p><b>Selesaikan kedua peta</b> / gunakan hasil rekan dan atasi gangguan untuk mengaktifkan pemancar.</p><p><b>Sertifikat lulus</b> / tiap operator bisa mengunduh sertifikat atas nama callsign dengan skor tim dari 300 poin.</p>' : exploring ?
+      '<p><b>Jelajahi enam distrik</b> / dekati panel untuk membuka soal. Kamu bisa melihat rekan bergerak di peta.</p><p><b>Bagikan nomor paket</b> / baca log atau kirim ping untuk membantu rekan membuka pekerjaan berikutnya.</p><p><b>Pulihkan sinyal</b> / atasi gangguan, lalu gabungkan paket tim di pemancar. Jawaban salah bisa dicoba lagi.</p>' :
+      '<p><b>6 distrik / 30 tahap</b> / kata, angka, pilihan, dan urutan tugas diacak setiap sesi.</p><p><b>Tugas berganti tiap tahap</b> / enkripsi, dekripsi, perbaikan, pemilihan paket, komposisi, dan kalibrasi.</p><p><b>Satu hasil tim</b> / distrik pulih setelah seluruh anggota menyelesaikan tugas.</p>'}</div><div class="room-action-row">${button('ready', p.ready ? '✓ KAMU SUDAH SIAP / BATAL' : 'SAYA SIAP', !p.ready)}${host ? button('start', 'MULAI MISI →', true, 'id="room-start"') : '<span class="room-host-note">Host akan memulai setelah semua siap.</span>'}</div><p id="room-ready-note" class="room-host-note"></p>${footer()}`;
     else if (room.phase === 'playing') { const r = roleFor(p); main = `<div class="room-mission-head"><p class="eyebrow text-amber">M${String(room.mission + 1).padStart(2, '0')} / ${esc(room.district)} / TAHAP ${room.stage + 1} DARI ${room.stages}</p><h1>${esc(room.title)}</h1></div><div id="room-team-objective">${teamObjective()}</div><div class="operator-assignment" style="--operator-color:${r.color}"><canvas width="128" height="160" data-operator="${r.id}" aria-hidden="true"></canvas><div><p class="eyebrow">${r.name} / ${esc(r.role)}</p><h2>${esc(room.challenge.task || 'Verifikasi paket')}</h2><p>${p.solved ? 'Kontribusimu sudah siap. Bantu teman mengecek hitungan; tim masih membutuhkan semua bagian.' : esc(room.challenge.objective)}</p></div></div><div id="room-paused" class="room-paused" role="status" ${room.paused ? '' : 'hidden'}>${pausedHTML()}</div>${p.solved ? `<div class="room-verified"><span>✓</span><h2>Tugasmu selesai.</h2><p id="room-waiting">${room.players.filter(q => q.solved).length}/${room.players.length} operator selesai.</p><p>Bagianmu sudah tersambung. Misi lanjut ketika seluruh kontribusi lengkap.</p></div>` : challengeHTML(room.challenge)}${footer()}`; }
-    else {
+    else if (training) {
+      const final = room.phase === 'finished';
+      const records = room.records.map(record => ({ ...record, name: window.CipherCourse.MAPS[record.mission] }));
+      main = `<div class="room-mission-head"><p class="eyebrow text-green">${final ? 'LULUS · 2/2 PETA TUNTAS' : 'PETA 01 TUNTAS'}</p><h1>${final ? 'Operasi selesai.' : 'Central Hub tersambung.'}</h1><p>${final ? 'Unduh sertifikat dengan callsign kamu dan skor tim.' : 'Riverside sudah terbuka. Host bisa membawa tim ke peta kedua.'}</p></div><div class="room-result-score"><span>${room.total}/300<small>POIN TIM</small></span><span>${room.records.length}/2<small>PETA TUNTAS</small></span></div>${final ? window.CipherCertificate.card({ name: p.name, records, completedAt: room.completedAt, team: true }) : ''}<div class="room-action-row">${host ? button(final ? 'lobby' : 'next', final ? 'BUKA LOBI BARU' : 'MASUK RIVERSIDE →', true) : final ? '' : '<p class="room-host-note">Menunggu host membuka Riverside…</p>'}</div>${footer()}`;
+    } else {
       const failed = room.phase === 'failed', final = room.phase === 'finished';
       const original = window.Cipher.missions[room.mission];
-      main = `<div class="room-mission-head"><p class="eyebrow ${failed ? 'text-amber' : 'text-green'}">${failed ? 'SIGNAL INTEGRITY / 0 OF 3' : esc(room.district) + ' / CONNECTED'}</p><h1>${failed ? 'Sinyal terputus.' : final ? 'Novaris kembali bersuara.' : 'Distrik tersambung.'}</h1><p>${failed ? 'Nyawa tim habis. Diskusikan rumusnya, lalu host dapat mencoba ulang misi ini. Poin distrik sebelumnya tetap ada.' : esc(original.story)}</p></div><div class="room-result-score"><span>${room.total}<small>POIN TIM</small></span><span>${room.records.length}/6<small>DISTRIK</small></span><span>${room.players.length}<small>OPERATOR</small></span></div>${!failed ? `<div id="room-team-objective">${teamObjective()}</div><div class="math-explanation"><strong>CATATAN ARIA / ${esc(room.debrief?.task || 'CONTOH PEMBAHASAN')}</strong>${esc(room.debrief?.explanation || original.explanation)}<p>Pembahasan ini untuk tugasmu. Temanmu menerima paket sesuai perannya.</p></div>` : ''}<div class="room-action-row">${host ? button(failed ? 'retry' : final ? 'lobby' : 'next', failed ? 'COBA LAGI BERSAMA →' : final ? 'MAIN LAGI / LOBBY' : 'LANJUT KE DISTRIK BERIKUTNYA →', true) : '<p class="room-host-note">Menunggu host melanjutkan…</p>'}</div>${footer()}`;
+      main = `<div class="room-mission-head"><p class="eyebrow ${failed ? 'text-amber' : 'text-green'}">${failed ? 'SIGNAL INTEGRITY / 0 OF 3' : esc(room.district) + ' / CONNECTED'}</p><h1>${failed ? 'Sinyal terputus.' : final ? 'Novaris kembali bersuara.' : 'Distrik tersambung.'}</h1><p>${failed ? 'Nyawa tim habis. Diskusikan rumusnya, lalu host dapat mencoba ulang misi ini. Poin distrik sebelumnya tetap ada.' : esc(original.story)}</p></div><div class="room-result-score"><span>${room.total}<small>POIN TIM</small></span><span>${room.records.length}/6<small>DISTRIK</small></span><span>${room.players.length}<small>OPERATOR</small></span></div>${!failed ? `${exploring ? '' : `<div id="room-team-objective">${teamObjective()}</div>`}<div class="math-explanation"><strong>CATATAN ARIA / ${esc(room.debrief?.task || 'CONTOH PEMBAHASAN')}</strong>${esc(room.debrief?.explanation || original.explanation)}${exploring ? '' : '<p>Pembahasan ini untuk tugasmu. Temanmu menerima paket sesuai perannya.</p>'}</div>` : ''}<div class="room-action-row">${host ? button(failed ? 'retry' : final ? 'lobby' : 'next', failed ? 'COBA LAGI BERSAMA →' : final ? 'MAIN LAGI / LOBBY' : 'LANJUT KE DISTRIK BERIKUTNYA →', true) : '<p class="room-host-note">Menunggu host melanjutkan…</p>'}</div>${footer()}`;
     }
     shell(`<div class="room-layout">${sidebar}<section class="room-main">${main}<div class="room-channel-log"><p class="eyebrow">CHANNEL LOG / LIVE</p><ol id="room-events"></ol></div>${host && room.phase !== 'lobby' && room.phase !== 'finished' ? button('resetLobby', 'BUKA LOBBY BARU / RESET PROGRES') : ''}</section></div>`, room.phase === 'playing' || room.phase === 'failed' ? 'terminal' : 'hub');
     window.CipherAudio?.setScene(room.phase === 'playing' ? 'puzzle' : room.phase === 'lobby' ? 'hub' : room.phase === 'failed' ? 'failed' : 'result');
@@ -174,6 +194,7 @@
   }
   function updateLive() {
     if (!view || !room) return;
+    if (field) { field.update(room, busy, failures === 0); setNetwork(failures === 0); return; }
     const set = (selector, html) => { const el = view.game.querySelector(selector); if (el && el.innerHTML !== html) el.innerHTML = html; };
     set('#room-roster', rosterHTML()); set('#room-count', `${room.players.length}/4 OPERATOR`);
     set('#room-health', '♥'.repeat(room.health) + '♡'.repeat(3 - room.health)); set('#room-total', room.total + ' PTS');
@@ -195,16 +216,19 @@
     if (c.kind === 'calibrate') return { a: integer(f.get('a')), b: integer(f.get('b')) };
     return { row: integer(f.get('row')), value: integer(f.get('value')) };
   }
+  function fieldPose() {
+    return field ? { stageId: room.stageId, pose: field.pose() } : {};
+  }
   async function send(action, extra = {}) {
     if (!session || busy) return;
     busy = true; updateLive(); const epoch = ticket;
     try {
-      const result = await requestWithTimeout(`/api/rooms/${session.code}/command`, { action, requestId: nonce(), stageId: room.stageId, ...extra });
+      const result = await requestWithTimeout(`/api/rooms/${session.code}/command`, { action, requestId: nonce(), stageId: room.stageId, ...fieldPose(), ...extra });
       if (!mounted || ticket !== epoch) return;
       if (action === 'leave') { clearSession(); replaceInvitation(''); exit(); return; }
       failures = 0; receive(result.room); status(result.message || '', result.correct === false);
       if (result.correct !== undefined) sound(result.correct ? 'success' : 'error');
-      if (action === 'hint') sound('hint');
+      if (action === 'hint' || action === 'field-hint') sound('hint');
     } catch (error) {
       if (!mounted || ticket !== epoch) return;
       if ([401, 404, 410].includes(error.status)) {
@@ -225,7 +249,7 @@
     for (const el of form.querySelectorAll('button')) el.disabled = true;
     status(intent === 'join' ? 'Menghubungkan ke room…' : 'Membuka kanal tim…');
     try {
-      const result = await requestWithTimeout(intent === 'join' ? `/api/rooms/${code}/join` : '/api/rooms/create', { name });
+      const result = await requestWithTimeout(intent === 'join' ? `/api/rooms/${code}/join` : '/api/rooms/create', { name, ...(intent === 'join' ? {} : { mode: f.get('mode') || 'training' }) });
       if (!mounted || epoch !== ticket) return;
       session = { code: result.room.code, secret: result.secret }; replaceInvitation(session.code); save(); sound('confirm'); failures = 0; receive(result.room); poll();
     } catch (error) { if (mounted && epoch === ticket) { status(error.message, true); for (const el of form.querySelectorAll('button')) el.disabled = false; } }
@@ -239,6 +263,7 @@
   }
   function exit() { const callback = view?.exit; destroy(); callback?.(); }
   function destroy() {
+    field?.destroy(); field = null;
     cancelAnimationFrame(crewFrame); crewFrame = null;
     mounted = false; ticket++; stopPolling(); view?.game.removeEventListener('click', onClick); view?.game.removeEventListener('submit', onSubmit); view?.game.removeEventListener('keydown', onKeyDown); view = null; key = ''; busy = false;
     setActive(false);
@@ -246,6 +271,7 @@
   function onClick(event) {
     const el = event.target.closest('[data-room-action]'); if (!el || el.disabled) return;
     const action = el.dataset.roomAction; sound('click');
+    if (action.startsWith('field-')) return field?.action(el);
     if (action === 'copy') return copyInvitation();
     if (action === 'exit') {
       if (!session) return exit();
@@ -259,8 +285,9 @@
     return send(action);
   }
   function onSubmit(event) {
-    if (!['room-entry-form', 'room-answer'].includes(event.target.id)) return;
+    if (!['room-entry-form', 'room-answer', 'field-answer'].includes(event.target.id)) return;
     event.preventDefault();
+    if (event.target.id === 'field-answer') return field?.answer(event.target);
     if (event.target.id === 'room-entry-form') return enter(event.target, event.submitter?.value || (String(new FormData(event.target).get('code') || '').trim() ? 'join' : 'create'));
     try { send('answer', { answer: parseAnswer(event.target) }); } catch (error) { status(error.message, true); }
   }

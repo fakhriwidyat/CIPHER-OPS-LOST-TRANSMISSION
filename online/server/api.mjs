@@ -1,4 +1,4 @@
-import { RoomError, createRoom, joinRoom, authenticate, command, snapshot, ROOM_LIFETIME } from './rooms.mjs';
+import { RoomError, createRoom, joinRoom, authenticate, command, snapshot, isFieldMode, ONLINE_TIMEOUT, ROOM_LIFETIME } from './rooms.mjs';
 const json = (value, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
 const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 function roomCode() { return Array.from(crypto.getRandomValues(new Uint8Array(6)), n => alphabet[n % alphabet.length]).join(''); }
@@ -33,7 +33,7 @@ export async function handleAPI(request, store) {
     if (url.pathname === '/api/rooms/create') {
       await store.prune(now);
       for (let i = 0; i < 6; i++) {
-        const { room, player } = createRoom(roomCode(), input.name, now);
+        const { room, player } = createRoom(roomCode(), input.name, now, input.mode);
         if (await store.insert(room)) return json({ secret: player.secret, room: { ...snapshot(room, player, now), revision: 0 } }, 201);
       }
       throw new RoomError('Gagal membuat kode room. Coba lagi.', 503);
@@ -49,7 +49,15 @@ export async function handleAPI(request, store) {
       if (match[2] === 'join') player = joinRoom(room, input.name, now);
       else {
         const secret = (request.headers.get('authorization') || '').replace(/^Bearer /, '');
-        player = authenticate(room, secret); reply = command(room, player, input, now);
+        player = authenticate(room, secret);
+        // Foreground field polls deliver movement more frequently than a
+        // presence heartbeat needs to be persisted.
+        const host = room.players.find(p => p.id === room.hostId);
+        if (isFieldMode(room) && room.phase === 'playing' && input.action === 'poll' && !input.pose &&
+          now - player.seen < 3000 && host && now - host.seen < ONLINE_TIMEOUT) {
+          return json({ room: { ...snapshot(room, player, now), revision: stored.revision }, message: '' });
+        }
+        reply = command(room, player, input, now);
       }
       if (await store.update(room.code, stored.revision, room)) return json({ ...(match[2] === 'join' ? { secret: player.secret } : {}), room: { ...snapshot(room, player, now), revision: stored.revision + 1 }, ...reply });
     }

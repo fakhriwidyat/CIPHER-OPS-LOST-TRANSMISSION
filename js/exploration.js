@@ -17,125 +17,133 @@
     { x: 686, y: 350, w: 26, h: 24 } // Aria's occupied floor space.
   ];
   const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
-  function walkable(x, y) {
-    return Number.isFinite(x) && Number.isFinite(y) && x >= ROOM.minX && x <= ROOM.maxX && y >= ROOM.minY && y <= ROOM.maxY && !OBSTACLES.some(o => x > o.x - ROOM.radius && x < o.x + o.w + ROOM.radius && y > o.y - ROOM.radius && y < o.y + o.h + ROOM.radius);
-  }
-  function clearLine(a, b) {
-    const steps = Math.max(1, Math.ceil(distance(a, b) / 3));
-    for (let i = 0; i <= steps; i++) if (!walkable(a.x + (b.x - a.x) * i / steps, a.y + (b.y - a.y) * i / steps)) return false;
-    return true;
-  }
-  const columns = Math.floor((ROOM.maxX - ROOM.minX) / ROOM.cell) + 1;
-  const rows = Math.floor((ROOM.maxY - ROOM.minY) / ROOM.cell) + 1;
-  const point = index => ({ x: ROOM.minX + index % columns * ROOM.cell, y: ROOM.minY + Math.floor(index / columns) * ROOM.cell });
-  function closestCell(target) {
-    let best = -1, bestDistance = Infinity;
-    for (let i = 0; i < columns * rows; i++) {
-      const p = point(i), d = distance(p, target);
-      if (d < bestDistance && walkable(p.x, p.y)) { best = i; bestDistance = d; }
+  function geometry({ bounds: room, obstacles, objects, spawn }) {
+    function walkable(x, y) {
+      return Number.isFinite(x) && Number.isFinite(y) && x >= room.minX && x <= room.maxX && y >= room.minY && y <= room.maxY && !obstacles.some(o => x > o.x - room.radius && x < o.x + o.w + room.radius && y > o.y - room.radius && y < o.y + o.h + room.radius);
     }
-    return best;
-  }
-  function findPath(start, destination) {
-    if (!walkable(start.x, start.y) || !Number.isFinite(destination.x) || !Number.isFinite(destination.y)) return [];
-    const startCell = closestCell(start), endCell = closestCell(destination);
-    const end = walkable(destination.x, destination.y) ? destination : point(endCell);
-    if (clearLine(start, end)) return [{ ...end }];
-    const queue = [startCell], previous = new Map([[startCell, null]]);
-    const offsets = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
-    for (let head = 0; head < queue.length && !previous.has(endCell); head++) {
-      const index = queue[head], col = index % columns, row = Math.floor(index / columns);
-      for (const [dx, dy] of offsets) {
-        const nx = col + dx, ny = row + dy, next = ny * columns + nx;
-        if (nx < 0 || nx >= columns || ny < 0 || ny >= rows || previous.has(next)) continue;
-        if (!clearLine(point(index), point(next))) continue;
-        previous.set(next, index); queue.push(next);
+    function clearLine(a, b) {
+      const steps = Math.max(1, Math.ceil(distance(a, b) / 3));
+      for (let i = 0; i <= steps; i++) if (!walkable(a.x + (b.x - a.x) * i / steps, a.y + (b.y - a.y) * i / steps)) return false;
+      return true;
+    }
+    const columns = Math.floor((room.maxX - room.minX) / room.cell) + 1;
+    const rows = Math.floor((room.maxY - room.minY) / room.cell) + 1;
+    const point = index => ({ x: room.minX + index % columns * room.cell, y: room.minY + Math.floor(index / columns) * room.cell });
+    function closestCell(target) {
+      let best = -1, bestDistance = Infinity;
+      for (let i = 0; i < columns * rows; i++) {
+        const p = point(i), d = distance(p, target);
+        if (d < bestDistance && walkable(p.x, p.y)) { best = i; bestDistance = d; }
       }
+      return best;
     }
-    if (!previous.has(endCell)) return [];
-    const raw = []; for (let i = endCell; i !== null; i = previous.get(i)) raw.unshift(point(i));
-    if (clearLine(raw[raw.length - 1], end)) raw.push({ ...end });
-    // Remove grid zig-zags while retaining collision-safe corners.
-    const smooth = []; let anchor = start, index = 0;
-    while (index < raw.length) {
-      let furthest = index;
-      for (let j = index; j < raw.length; j++) if (clearLine(anchor, raw[j])) furthest = j;
-      smooth.push(raw[furthest]); anchor = raw[furthest]; index = furthest + 1;
-    }
-    return smooth;
-  }
-  function createNavigator(initial = {}, onInteract = () => {}) {
-    const state = { x: walkable(initial.x, initial.y) ? initial.x : 476, y: walkable(initial.x, initial.y) ? initial.y : 446, direction: initial.direction || 'down', moving: false, time: 0, gaitWeight: 0, path: [], destination: null, pending: null };
-    let speed = 0, velocityX = 0, velocityY = 0;
-    function nearest() { return OBJECTS.map(o => ({ ...o, distance: distance(state, o) })).filter(o => o.distance <= 53).sort((a, b) => a.distance - b.distance)[0] || null; }
-    function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; speed = 0; velocityX=0;velocityY=0; }
-    function moveTo(target, objectId = null) {
-      state.path = findPath(state, target); state.destination = state.path.length ? { ...state.path[state.path.length - 1] } : null; state.pending = state.path.length ? objectId : null;
-      return state.path.length > 0;
-    }
-    function interact() {
-      const object = nearest();
-      if (!object) return false;
-      stop(); state.direction = object.face; onInteract(object.id); return true;
-    }
-    function approach(id) {
-      const object = OBJECTS.find(o => o.id === id); if (!object) return false;
-      if (distance(state, object) <= 22) { stop(); state.direction = object.face; onInteract(id); return true; }
-      return moveTo(object, id);
-    }
-    function step(seconds, input = {}) {
-      const dt = Math.max(0, Math.min(.05, seconds));
-      const vx = Number(input.x) || 0, vy = Number(input.y) || 0;
-      let dx = 0, dy = 0;
-      const wantsMovement = !!(vx || vy || state.path.length);
-      speed += ((wantsMovement ? ROOM.speed : 0) - speed) * (1 - Math.exp(-dt / .045));
-      if (vx || vy || (!state.path.length && Math.hypot(velocityX,velocityY)>.5)) {
-        state.path = []; state.destination = null; state.pending = null;
-        const norm = Math.hypot(vx, vy) || 1;
-        const tx=vx/norm*ROOM.speed,ty=vy/norm*ROOM.speed;
-        const tau=(vx||vy) ? .075 : .045;
-        const decay=Math.exp(-dt/tau);
-        // Integrate the velocity curve, rather than snapping direction or
-        // applying a frame-dependent lerp to position. Braking is short and bounded.
-        dx=tx*dt+(velocityX-tx)*tau*(1-decay);
-        dy=ty*dt+(velocityY-ty)*tau*(1-decay);
-        velocityX=tx+(velocityX-tx)*decay;velocityY=ty+(velocityY-ty)*decay;
-      } else if (state.path.length) {
-        velocityX=0;velocityY=0;
-        // Carry unused distance across corners instead of losing a frame at
-        // every waypoint. Each segment still follows a collision-safe path.
-        let travel = speed * dt, anchor = { x: state.x, y: state.y };
-        while (state.path.length && travel > 0) {
-          const target = state.path[0], d = distance(anchor, target);
-          if (d <= travel) { anchor = { ...target }; travel -= d; state.path.shift(); }
-          else { anchor.x += (target.x-anchor.x)/d*travel; anchor.y += (target.y-anchor.y)/d*travel; travel=0; }
+    function findPath(start, destination) {
+      if (!walkable(start.x, start.y) || !Number.isFinite(destination.x) || !Number.isFinite(destination.y)) return [];
+      const startCell = closestCell(start), endCell = closestCell(destination);
+      const end = walkable(destination.x, destination.y) ? destination : point(endCell);
+      if (clearLine(start, end)) return [{ ...end }];
+      const queue = [startCell], previous = new Map([[startCell, null]]);
+      const offsets = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+      for (let head = 0; head < queue.length && !previous.has(endCell); head++) {
+        const index = queue[head], col = index % columns, row = Math.floor(index / columns);
+        for (const [dx, dy] of offsets) {
+          const nx = col + dx, ny = row + dy, next = ny * columns + nx;
+          if (nx < 0 || nx >= columns || ny < 0 || ny >= rows || previous.has(next)) continue;
+          if (!clearLine(point(index), point(next))) continue;
+          previous.set(next, index); queue.push(next);
         }
-        dx = anchor.x-state.x; dy = anchor.y-state.y;
       }
-      const before = { x: state.x, y: state.y };
-      if (walkable(state.x + dx, state.y)) state.x += dx; else velocityX=0;
-      if (walkable(state.x, state.y + dy)) state.y += dy; else velocityY=0;
-      state.moving = distance(before, state) > .01;
-      const travelled = distance(before,state);
-      state.gaitWeight += ((state.moving ? 1 : 0)-state.gaitWeight)*(1-Math.exp(-dt/.065));
-      if (state.moving) {
-        state.time += travelled / ROOM.speed;
-        // Keep the current facing near diagonal ties to avoid left/up flicker.
-        if (Math.abs(dx)>Math.abs(dy)*1.15) state.direction=dx>0?'right':'left';
-        else if (Math.abs(dy)>Math.abs(dx)*1.15) state.direction=dy>0?'down':'up';
-        else if (!['left','right','up','down'].includes(state.direction) || (state.direction==='left'&&dx>=0)||(state.direction==='right'&&dx<=0)||(state.direction==='up'&&dy>=0)||(state.direction==='down'&&dy<=0)) state.direction=dx>0?'right':'left';
+      if (!previous.has(endCell)) return [];
+      const raw = []; for (let i = endCell; i !== null; i = previous.get(i)) raw.unshift(point(i));
+      if (clearLine(raw[raw.length - 1], end)) raw.push({ ...end });
+      // Remove grid zig-zags while retaining collision-safe corners.
+      const smooth = []; let anchor = start, index = 0;
+      while (index < raw.length) {
+        let furthest = index;
+        for (let j = index; j < raw.length; j++) if (clearLine(anchor, raw[j])) furthest = j;
+        smooth.push(raw[furthest]); anchor = raw[furthest]; index = furthest + 1;
       }
-      if (!state.path.length && state.destination) {
-        const pending = state.pending, object = OBJECTS.find(o => o.id === pending);
-        state.destination = null; state.pending = null; state.moving = false;
-        if (object && distance(state, object) <= 22) { state.direction = object.face; onInteract(object.id); }
-      }
-      return state;
+      return smooth;
     }
-    return { state, step, nearest, stop, moveTo, approach, interact };
+    function createNavigator(initial = {}, onInteract = () => {}) {
+      const state = { ...(walkable(initial.x, initial.y) ? { x: initial.x, y: initial.y } : spawn), direction: initial.direction || 'down', moving: false, time: 0, gaitWeight: 0, path: [], destination: null, pending: null };
+      let speed = 0, velocityX = 0, velocityY = 0;
+      function nearest() { return objects.map(o => ({ ...o, distance: distance(state, o) })).filter(o => o.distance <= 53 && clearLine(state, o)).sort((a, b) => a.distance - b.distance)[0] || null; }
+      function stop() { state.path = []; state.destination = null; state.pending = null; state.moving = false; speed = 0; velocityX=0;velocityY=0; }
+      function moveTo(target, objectId = null) {
+        state.path = findPath(state, target); state.destination = state.path.length ? { ...state.path[state.path.length - 1] } : null; state.pending = state.path.length ? objectId : null;
+        return state.path.length > 0;
+      }
+      function interact() {
+        const object = nearest();
+        if (!object) return false;
+        stop(); state.direction = object.face; onInteract(object.id); return true;
+      }
+      function approach(id) {
+        const object = objects.find(o => o.id === id); if (!object) return false;
+        if (distance(state, object) <= 22 && clearLine(state, object)) { stop(); state.direction = object.face; onInteract(id); return true; }
+        return moveTo(object, id);
+      }
+      function step(seconds, input = {}) {
+        const dt = Math.max(0, Math.min(.05, seconds));
+        const vx = Number(input.x) || 0, vy = Number(input.y) || 0;
+        let dx = 0, dy = 0;
+        const wantsMovement = !!(vx || vy || state.path.length);
+        speed += ((wantsMovement ? room.speed : 0) - speed) * (1 - Math.exp(-dt / .045));
+        if (vx || vy || (!state.path.length && Math.hypot(velocityX,velocityY)>.5)) {
+          state.path = []; state.destination = null; state.pending = null;
+          const norm = Math.hypot(vx, vy) || 1;
+          const tx=vx/norm*room.speed,ty=vy/norm*room.speed;
+          const tau=(vx||vy) ? .075 : .045;
+          const decay=Math.exp(-dt/tau);
+          // Integrate the velocity curve, rather than snapping direction or
+          // applying a frame-dependent lerp to position. Braking is short and bounded.
+          dx=tx*dt+(velocityX-tx)*tau*(1-decay);
+          dy=ty*dt+(velocityY-ty)*tau*(1-decay);
+          velocityX=tx+(velocityX-tx)*decay;velocityY=ty+(velocityY-ty)*decay;
+        } else if (state.path.length) {
+          velocityX=0;velocityY=0;
+          // Carry unused distance across corners instead of losing a frame at
+          // every waypoint. Each segment still follows a collision-safe path.
+          let travel = speed * dt, anchor = { x: state.x, y: state.y };
+          while (state.path.length && travel > 0) {
+            const target = state.path[0], d = distance(anchor, target);
+            if (d <= travel) { anchor = { ...target }; travel -= d; state.path.shift(); }
+            else { anchor.x += (target.x-anchor.x)/d*travel; anchor.y += (target.y-anchor.y)/d*travel; travel=0; }
+          }
+          dx = anchor.x-state.x; dy = anchor.y-state.y;
+        }
+        const before = { x: state.x, y: state.y };
+        if (walkable(state.x + dx, state.y)) state.x += dx; else velocityX=0;
+        if (walkable(state.x, state.y + dy)) state.y += dy; else velocityY=0;
+        state.moving = distance(before, state) > .01;
+        const travelled = distance(before,state);
+        state.gaitWeight += ((state.moving ? 1 : 0)-state.gaitWeight)*(1-Math.exp(-dt/.065));
+        if (state.moving) {
+          state.time += travelled / room.speed;
+          // Keep the current facing near diagonal ties to avoid left/up flicker.
+          if (Math.abs(dx)>Math.abs(dy)*1.15) state.direction=dx>0?'right':'left';
+          else if (Math.abs(dy)>Math.abs(dx)*1.15) state.direction=dy>0?'down':'up';
+          else if (!['left','right','up','down'].includes(state.direction) || (state.direction==='left'&&dx>=0)||(state.direction==='right'&&dx<=0)||(state.direction==='up'&&dy>=0)||(state.direction==='down'&&dy<=0)) state.direction=dx>0?'right':'left';
+        }
+        if (!state.path.length && state.destination) {
+          const pending = state.pending, object = objects.find(o => o.id === pending);
+          state.destination = null; state.pending = null; state.moving = false;
+          if (object && distance(state, object) <= 22) { state.direction = object.face; onInteract(object.id); }
+        }
+        return state;
+      }
+      function reposition(position) {
+        if (!walkable(position.x, position.y)) return;
+        stop(); Object.assign(state, { x: position.x, y: position.y, direction: position.direction });
+      }
+      return { state, step, nearest, stop, moveTo, approach, interact, reposition };
+    }
+    return { walkable, clearLine, findPath, createNavigator };
   }
-  function mount({ scene, canvas, initial, onInteract, onPose, onHint, isBlocked = () => false }) {
-    const navigator = createNavigator(initial, onInteract), keys = new Set(), pointers = new Map();
+  const safehouse = geometry({ bounds: ROOM, obstacles: OBSTACLES, objects: OBJECTS, spawn: { x: 476, y: 446 } });
+  function mount({ scene, canvas, initial, onInteract, onPose, onHint, layout, isBlocked = () => false }) {
+    const navigator = (layout ? geometry(layout) : safehouse).createNavigator(initial, onInteract), keys = new Set(), pointers = new Map();
     let raf = 0, last = 0, paused = false, destroyed = false, lastNearby = '', lastDestination = false;
     const prompt = scene.querySelector('.world-interaction');
     const promptName = scene.querySelector('.interaction-name');
@@ -146,7 +154,7 @@
       if (id !== lastNearby) {
         lastNearby = id;
         if (prompt) prompt.hidden = !nearby;
-        if (nearby) { promptName.textContent = nearby.name; promptVerb.textContent = nearby.verb; }
+        if (nearby && promptName && promptVerb) { promptName.textContent = nearby.name; promptVerb.textContent = nearby.verb; }
         scene.querySelectorAll('.hotspot').forEach(button => button.classList.toggle('in-range', button.dataset.action === id));
       }
       if (lastDestination !== !!navigator.state.destination) { lastDestination = !!navigator.state.destination; scene.classList.toggle('runner-walking', lastDestination); }
@@ -171,7 +179,7 @@
       if (paused || isBlocked() || editable(event.target)) return;
       const key = event.key.length === 1 ? event.key.toLowerCase() : event.key;
       if (keyNames[key]) { event.preventDefault(); keys.add(keyNames[key]); }
-      if (key === 'e' && !event.repeat) { event.preventDefault(); if (!navigator.interact()) onHint('Dekati terminal, peta, archive, atau Aria. Tekan E saat petunjuk interaksi muncul.'); }
+      if (key === 'e' && !event.repeat) { event.preventDefault(); if (!navigator.interact()) onHint(layout ? 'Dekati panel yang ditandai, lalu tekan E.' : 'Dekati terminal, peta, archive, atau Aria. Tekan E saat petunjuk interaksi muncul.'); }
     }
     function keyUp(event) { const key = event.key.length === 1 ? event.key.toLowerCase() : event.key; if (keyNames[key]) keys.delete(keyNames[key]); }
     function clearKeys() { keys.clear(); pointers.clear(); }
@@ -184,9 +192,10 @@
         return;
       }
       if (event.target.closest('button, a, input, details, .scene-top, .hub-bottom')) return;
+      if (layout && event.target !== canvas) return;
       const bounds = canvas.getBoundingClientRect();
       const target = { x: (event.clientX - bounds.left) / bounds.width * 960, y: (event.clientY - bounds.top) / bounds.height * 540 };
-      if (target.y < 355 || target.y > 506) return;
+      if (!layout && (target.y < 355 || target.y > 506)) return;
       event.preventDefault(); clearKeys(); navigator.moveTo(target);
     }
     function pointerUp(event) { pointers.delete(event.pointerId); }
@@ -198,11 +207,12 @@
       approach(id) { if (!paused && !isBlocked()) { clearKeys(); navigator.approach(id); } },
       interact() { if (!paused && !isBlocked()) navigator.interact(); },
       position() { return { x: navigator.state.x, y: navigator.state.y, direction: navigator.state.direction }; },
+      reposition(position) { clearKeys(); navigator.reposition(position); },
       pause() { paused = true; clearKeys(); navigator.stop(); }, resume() { paused = false; last = 0; },
       destroy() { destroyed = true; cancelAnimationFrame(raf); clearKeys(); document.removeEventListener('keydown', keyDown); document.removeEventListener('keyup', keyUp); window.removeEventListener('blur', clearKeys); scene.removeEventListener('pointerdown', pointerDown); scene.removeEventListener('pointerup', pointerUp); scene.removeEventListener('pointercancel', pointerUp); scene.removeEventListener('lostpointercapture', pointerUp); }
     };
   }
-  const api = { ROOM, OBJECTS, OBSTACLES, walkable, clearLine, findPath, createNavigator, mount };
+  const api = { ROOM, OBJECTS, OBSTACLES, ...safehouse, geometry, mount };
   root.Safehouse = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

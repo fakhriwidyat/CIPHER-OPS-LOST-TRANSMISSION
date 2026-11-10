@@ -5,6 +5,7 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
 const { math, missions, SAVE_KEY, SETTINGS_KEY } = require('../js/data.js');
+const course = require('../js/course.js');
 function setup(savedEntries = []) {
   const store = new Map(savedEntries), listeners = {}, timers = new Map(), nodes = new Map(); let timerId = 0;
   function node() { return { innerHTML: '', textContent: '', hidden: true, disabled: false, isConnected: true, open: false, offsetWidth: 500, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, focus() {}, addEventListener() {}, showModal() { this.open = true; }, close() { this.open = false; }, getBoundingClientRect() { return { left: 0, right: 500, top: 0, bottom: 500 }; } }; }
@@ -17,7 +18,7 @@ function setup(savedEntries = []) {
   const context = { document, PixelArt, localStorage: { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) }, setTimeout: (callback, ms) => { const id = ++timerId; timers.set(id, { callback, ms }); return id; }, clearTimeout: id => timers.delete(id), FormData: class { constructor(form) { this.data = form.values; } get(key) { return this.data[key] ?? null; } } };
   context.window = { matchMedia: () => ({ matches: false }), PixelArt };
   vm.createContext(context);
-  for (const file of ['data.js', 'game.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/', file), 'utf8'), context, { filename: file });
+  for (const file of ['data.js', 'course.js', 'certificate.js', 'game.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/', file), 'utf8'), context, { filename: file });
   const click = (name, id) => listeners.click({ target: { closest: () => ({ dataset: { action: name, id: String(id) }, disabled: false }) } });
   const submit = (id, values) => listeners.submit({ preventDefault() {}, target: { id, values, elements: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) } });
   const save = () => JSON.parse(store.get(SAVE_KEY));
@@ -77,6 +78,47 @@ test('all six missions require all stages, finish the campaign, and restore save
   assert.equal(Object.values(app.save().records).reduce((s, r) => s + r.score, 0), 900);
   app.click('ending'); assert.ok(app.has('THE CITY')); assert.ok(app.has('900')); assert.ok(app.has('18/18'));
   const restored = setup(app.store); restored.click('continue'); assert.ok(restored.has('THE SAFEHOUSE')); assert.deepEqual(restored.save().completed, [0, 1, 2, 3, 4, 5]);
+});
+test('solo terminal and map unlock Riverside after all topics and issue a downloadable scored certificate', () => {
+  const app = setup();
+  const saved = () => JSON.parse(app.store.get(course.KEY));
+  app.click('courseOpen');
+  app.submit('course-name-form', { name: '<script>' });
+  assert.ok(!app.store.has(course.KEY));
+  app.submit('course-name-form', { name: 'Siti Nur Aisyah' });
+  app.click('map');
+  assert.ok(app.has('Terkunci'));
+  app.click('courseDock');
+  assert.ok(!app.has('TERMINAL DERMAGA'));
+  app.click('courseHub'); app.click('terminal');
+  app.submit('course-answer-form', { answer: '' });
+  assert.equal(saved().wrong, 0);
+  app.click('courseHint'); app.click('courseHint');
+  assert.equal(saved().hinted.length, 1);
+  for (let map = 0; map < 2; map++) {
+    const topics = [];
+    for (let step = 0; step < 8; step++) {
+      const puzzle = course.question(saved());
+      topics.push(puzzle.topic);
+      assert.ok(app.has(puzzle.title));
+      app.submit('course-answer-form', { answer: puzzle.answers.at(-1) });
+    }
+    assert.equal(new Set(topics.slice(0, 4)).size, 4);
+    assert.equal(new Set(topics.slice(4)).size, 4);
+    if (map === 0) {
+      assert.ok(app.has('MASUK RIVERSIDE'));
+      assert.ok(!app.has('Unduh sertifikat'));
+      app.click('courseDock'); assert.ok(app.has('TERMINAL DERMAGA')); app.click('terminal');
+    }
+  }
+  assert.ok(app.has('275/300 poin'));
+  assert.ok(app.has('download="sertifikat-cipher-ops-Siti-Nur-Aisyah.svg"'));
+  assert.ok(app.has('Sertifikat Lulus'));
+  const restored = setup(app.store);
+  restored.click('courseOpen');
+  assert.ok(restored.has('275/300 poin'));
+  assert.ok(restored.has('Siti Nur Aisyah'));
+  assert.ok(!app.store.has(SAVE_KEY));
 });
 test('resume survives refresh mid-composition, without skipping the second stage', () => {
   const app = setup(); app.start(); for (const id of [0, 1]) { app.open(id); app.answerStage(id, 0); }

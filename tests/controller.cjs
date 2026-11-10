@@ -3,13 +3,13 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-function setup() {
+function setup({ withoutPrompt = false } = {}) {
   const events = new Map(), frames = new Map(); let id = 0, now = 100, blocked = false, lastPose, hints = 0;
   function eventTarget(name) {
     return { addEventListener(type, callback) { events.set(name + ':' + type, callback); }, removeEventListener(type, callback) { if (events.get(name + ':' + type) === callback) events.delete(name + ':' + type); } };
   }
   const window = eventTarget('window'), document = eventTarget('document');
-  const nodes = new Map(), scene = { ...eventTarget('scene'), isConnected: true, dataset: {}, classList: { toggle() {} }, querySelector(selector) { if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: '' }); return nodes.get(selector); }, querySelectorAll() { return []; } };
+  const nodes = new Map(), scene = { ...eventTarget('scene'), isConnected: true, dataset: {}, classList: { toggle() {} }, querySelector(selector) { if (withoutPrompt) return null; if (!nodes.has(selector)) nodes.set(selector, { hidden: true, textContent: '' }); return nodes.get(selector); }, querySelectorAll() { return []; } };
   const canvas = { clientWidth: 960, getBoundingClientRect() { return { left: 0, top: 0, width: 960, height: 540 }; } };
   const context = { window, document, requestAnimationFrame: callback => { frames.set(++id, callback); return id; }, cancelAnimationFrame: key => frames.delete(key) };
   vm.createContext(context); vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/exploration.js'), 'utf8'), context);
@@ -49,5 +49,13 @@ test('losing touch capture stops its direction even when the finger is outside t
   app.events.get('scene:lostpointercapture')({ pointerId: 3, target: { closest: () => null } });
   app.tick(30); const settled = app.pose().x;
   app.tick(20); assert.equal(app.pose().x, settled);
+  app.controller.destroy();
+});
+test('a scene without Safehouse prompt nodes can approach and reach a hotspot', () => {
+  const app = setup({ withoutPrompt: true });
+  app.controller.approach('terminal');
+  app.tick(100);
+  assert.equal(app.pose().x, 410);
+  assert.equal(app.pose().y, 420);
   app.controller.destroy();
 });

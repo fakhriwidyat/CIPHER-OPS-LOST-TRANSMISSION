@@ -60,13 +60,27 @@ Seluruh musik, hujan, dengung, dan efek dibuat lokal oleh `js/audio.js`; tidak m
 - **Klik terminal, peta, archive, atau Aria:** Runner mendekat lalu membuka interaksi tersebut.
 - **Ponsel:** tahan tombol D-pad untuk berjalan; ketuk tombol interaksi yang muncul di dekat objek.
 
-Soal matematika dibuka melalui **Central Terminal**, lalu **Establish Connection**. Karakter Runner dan Aria digambar lokal dengan pose empat arah, animasi langkah, idle, dan portrait baru. Pengaturan Reduce motion mengurangi efek tambahan; gerak yang dikendalikan pemain tetap aktif.
+Pada **Misi Solo**, dekati **Central Terminal** untuk mengerjakan soal. Pada Campaign Klasik, terminal membuka briefing dengan tombol **Establish Connection**. Karakter Runner dan Aria digambar lokal dengan pose empat arah, animasi langkah, idle, dan portrait baru. Pengaturan Reduce motion mengurangi efek tambahan; gerak yang dikendalikan pemain tetap aktif.
+
+## Operasi Dua Peta
+
+- Solo: pilih **Mulai Misi Solo**, isi nama sertifikat, lalu kerjakan delapan soal di **Central Terminal**. Setelah **Central Hub** tuntas, masuk **Riverside** dari **District Map** dan selesaikan delapan soal di **Terminal Dermaga**.
+- Tim: pilih **Main Bareng → Operasi 2 Peta + Sertifikat** ketika membuat room. Masing-masing peta mencakup keempat topik. Host membuka Riverside setelah tim memulihkan pemancar Central Hub.
+- Kedua peta mencakup fungsi, nonfungsi, invers, dan cipher. Skor maksimal 150 per peta. Jawaban salah bisa diulang, dengan penalti skor. Setelah dua peta tuntas, unduh sertifikat SVG yang memuat nama, tanggal, rincian skor per peta, dan total dari 300 poin. Sertifikat room memakai callsign tiap pemain dan skor tim.
 
 ## Menjalankan preview dan pengujian
 
 Jika Node.js tersedia, jalankan `node scripts/serve.cjs`, lalu buka http://127.0.0.1:4173. Server diperlukan untuk Main Bareng, sedangkan solo bisa dimainkan langsung dari file.
 
 Jalankan tes dengan `node --test tests/math.cjs tests/game.cjs tests/exploration.cjs tests/controller.cjs tests/audio.cjs tests/rooms.mjs` (Node 24 dipakai untuk tes SQLite). `node tests/smoke-online.mjs http://127.0.0.1:4175` menguji empat sesi HTTP pada hasil build server lokal. Catatan pengujian browser ada di `TESTING.md`.
+
+### Eksplorasi distrik
+
+Jalankan `node scripts/serve.cjs`, buka `http://127.0.0.1:4173/` di 2–4 tab, lalu pilih **Main Bareng → Eksplorasi 6 Distrik → Buat Room**. Buka undangan di tab lain, pilih operator, dan tekan **Saya Siap**. Host bisa memulai saat semua siap. Gunakan WASD, panah, tombol arah layar sentuh, atau klik lantai. Klik penanda panel untuk mendekat, atau tekan E ketika sudah di dekat panel.
+
+Setiap distrik memberi tiga pekerjaan per pemain. Selesaikan panel yang ditandai untuk operator kamu, lalu cek nomor paket di **Peta & Tugas** atau daftar paket dalam panel. Di Data Spire dan Old Sector, cari fragmen di panel lain agar tim bisa merakit pesan. Gangguan bisa diatasi dari panel perbaikan atau jalur cadangan. Setelah semua pekerjaan selesai, gabungkan paket tim di pemancar. Jawaban bisa dicoba lagi dan refresh di tab yang sama memulihkan sesi. Pilih **Paket klasik** saat membuat room untuk bermain dengan tahap seperti sebelumnya.
+
+Bank server berisi 48 template dengan delapan variasi per template. Uji khusus dengan `node --test tests/field.mjs`. Jalankan `node scripts/sync-online.cjs` sebelum build Worker. Eksplorasi memakai endpoint room dan penyimpanan yang sama, sehingga rilis publik perlu memuat frontend dan backend yang sudah tersinkronisasi.
 
 ## Struktur
 

@@ -21,7 +21,7 @@ function setup(search = '', respond = () => ({})) {
     addEventListener(type, listener) { events.set(type, listener); },
     removeEventListener(type) { events.delete(type); },
   };
-  const window = { dispatchEvent() {} };
+  const window = { dispatchEvent() {}, CipherCourse: require('../js/course.js'), CipherCertificate: require('../js/certificate.js') };
   const history = { replaceState(_state, _title, url) { location.href = url.href; } };
   vm.runInNewContext(source, {
     window, location, history, URL, URLSearchParams, AbortController, CustomEvent: class {},
@@ -82,4 +82,23 @@ test('opening a hint keeps the typed answer for that stage but never carries it 
   await hint();
   assert.equal(app.answer.dataset.stage, 'second');
   assert.equal(app.answer.elements[0].value, '');
+});
+
+test('training debrief offers Riverside first and a personalized team certificate at the end', async () => {
+  const room = { ...snapshot('OLD234', 1, 'first'), mode: 'training', phase: 'result', total: 150, records: [{ mission: 0, score: 150 }] };
+  function load(state) {
+    return setup('', (path) => path.endsWith('/health') ? { ok: true } : { room: state });
+  }
+  const first = load(room);
+  const end = load({
+    ...room, phase: 'finished', mission: 1, total: 280, records: [...room.records, { mission: 1, score: 130 }],
+    completedAt: '2026-11-10T10:00:00.000Z', you: 'friend',
+    players: [...room.players, { ...room.players[0], id: 'friend', name: 'TEMAN', slot: 1 }]
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(first.game.innerHTML, /MASUK RIVERSIDE/);
+  assert.doesNotMatch(first.game.innerHTML, /download=/);
+  assert.match(end.game.innerHTML, /download="sertifikat-cipher-ops-TEMAN.svg"/);
+  assert.match(end.game.innerHTML, /SKOR TIM/);
+  assert.match(end.game.innerHTML, /280\/300/);
 });

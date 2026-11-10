@@ -1,0 +1,28 @@
+.classic-menu { margin: 2px 0; color: #a8bdc9; font: 11px/1.5 var(--mono); }
+.classic-menu summary { cursor: pointer; padding: 9px 0; }
+.classic-menu .button + .button { margin-top: 5px; }
+.course-scene { min-height: 640px; background: #0b1726; }
+.course-scene > .scene-canvas { opacity: .32; }
+.course-pane { position: relative; width: min(860px, calc(100% - 30px)); margin: clamp(98px, 10vw, 130px) auto 34px; padding: clamp(17px, 4vw, 37px); background: #101f30f2; border: 1px solid #486471; }
+.course-pane h1 { font-size: clamp(24px, 4vw, 43px); line-height: 1.12; margin: 10px 0 13px; }
+.course-pane > p:not(.eyebrow) { color: #bdced8; line-height: 1.65; }
+.course-pane form { display: grid; gap: 13px; margin-top: 15px; }
+.course-pane .text-input { display: block; width: 100%; margin-top: 8px; font-size: 16px; }
+.course-pane form > .button { width: fit-content; }
+.course-map-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 24px 0 0; }
+.course-map-list article { display: grid; align-content: start; gap: 8px; border: 1px solid #375261; background: #132737; padding: 15px; }
+.course-map-list article h2 { font-size: 20px; }
+.course-map-list article p { color: #a6bcc9; font-size: 13px; }
+.course-map-list article .button { width: fit-content; padding: 10px; font-size: 11px; }
+.course-choices { min-width: 0; border: 0; display: grid; gap: 6px; padding: 0; }
+.course-choices legend { margin-bottom: 7px; font: 11px/1.4 var(--mono); color: #abd4cf; }
+.course-choices label { display: flex; gap: 10px; align-items: center; padding: 9px 12px; min-height: 38px; border: 1px solid #385264; cursor: pointer; }
+.course-choices input { accent-color: #83dfc3; }
+.course-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.course-pane .course-hint { color: #a0e2c3; padding-top: 12px; }
+.course-pane .course-points { color: #adc6d4; font: 12px/1.7 var(--mono); }
+.course-pane .feedback:empty, .course-pane .course-hint:empty { display: none; }
+.certificate-card { margin: 16px 0; display: grid; justify-items: start; gap: 12px; }
+.certificate-card svg { width: 100%; height: auto; display: block; }
+.certificate-card a { text-decoration: none; }
+@media (max-width: 520px) { .course-map-list { grid-template-columns: 1fr; } }

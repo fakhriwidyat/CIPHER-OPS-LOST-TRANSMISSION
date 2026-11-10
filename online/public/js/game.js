@@ -1,6 +1,7 @@
 (function () {
   'use strict';
   const { math, missions, intro, VERSION, SAVE_KEY, SETTINGS_KEY } = window.Cipher;
+  const courseRules = window.CipherCourse;
   const game = document.querySelector('#game');
   const modal = document.querySelector('#modal');
   const toastElement = document.querySelector('#toast');
@@ -23,6 +24,9 @@
   let campaign = null, run = null, coop = null, screen = 'menu', introIndex = 0, selectedMission = 0;
   let dialogueState = null, toastTimer, sceneTimer, lastFocus, saveWarningShown = false, currentArt = 'city';
   let hubController = null, hubPosition = { x: 476, y: 446, direction: 'down' };
+  let course = null;
+  const isCourseHub = () => screen === 'courseHub' || screen === 'courseDock';
+  const courseDone = () => !!course?.completedAt;
 
   function storageRead(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (_) { return null; } }
   function storageWrite(key, value) {
@@ -91,20 +95,23 @@
     return `<section class="scene ${className}" aria-label="${escapeHTML(screen)}"><canvas class="scene-canvas" aria-hidden="true"></canvas>${corners}${content}</section>`;
   }
   function top(title, sub = '', back = 'hub', right = '') {
-    return `<div class="scene-top">${action(back, icons.back + (back === 'menu' ? 'MAIN MENU' : back === 'leaveCoop' ? 'EXIT CO-OP' : 'SAFEHOUSE'), 'back-button')}<div class="scene-title">${title}${sub ? `<small>${sub}</small>` : ''}</div>${right || '<span class="hud-tag"><i></i> LOCAL / OFFLINE</span>'}</div>`;
+    const label = { menu: 'MAIN MENU', leaveCoop: 'EXIT CO-OP', courseDock: 'DERMAGA', courseMap: 'PETA MISI' }[back] || 'SAFEHOUSE';
+    return `<div class="scene-top">${action(back, icons.back + label, 'back-button')}<div class="scene-title">${title}${sub ? `<small>${sub}</small>` : ''}</div>${right || '<span class="hud-tag"><i></i> LOCAL / OFFLINE</span>'}</div>`;
   }
   function mount(art = 'city') {
     currentArt = art;
-    window.PixelArt.mount(game.querySelector('canvas'), art, { restored: campaign?.completed.length || 0, reduced: settings.reducedMotion, interactive: screen === 'hub', actor: hubController?.position() || hubPosition, callsign: campaign?.callsign || 'RUNNER' });
+    window.PixelArt.mount(game.querySelector('canvas'), art, { restored: campaign?.completed.length || 0, reduced: settings.reducedMotion, interactive: screen === 'hub' || isCourseHub(), actor: hubController?.position() || hubPosition, callsign: (isCourseHub() ? course?.name : campaign?.callsign) || 'RUNNER' });
   }
   function navigate(next, options = {}) {
     if (screen === 'online' && next !== 'online') window.CipherRooms?.destroy();
     if (hubController) { hubPosition = hubController.position(); hubController.destroy(); hubController = null; }
     clearTimeout(sceneTimer); screen = next;
     if (next !== 'dialogue') dialogueState = null;
-    const renderers = { online: () => window.CipherRooms?.mount({ game, scene, mount, sound, callsign: campaign?.callsign, confirm: confirmModal, exit: () => navigate('menu') }), menu: menu, intro: renderIntro, hub, map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, ending, dialogue: renderDialogue };
+    const renderers = { online: () => window.CipherRooms?.mount({ game, scene, mount, sound, callsign: campaign?.callsign, confirm: confirmModal, exit: () => navigate('menu') }), menu: menu, intro: renderIntro, hub: () => hub(), map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, ending, dialogue: renderDialogue,
+      courseEntry, courseHub: () => hub(true), courseDock: () => hub(true), courseMap, courseQuestion, courseResult };
     (renderers[next] || menu)(options);
-    window.CipherAudio?.setScene(screen === 'intro' && currentArt === 'hub' ? 'dialogue' : screen);
+    const audioScene = { courseHub: 'hub', courseDock: 'hub', courseQuestion: 'puzzle', courseResult: 'result' }[screen];
+    window.CipherAudio?.setScene(audioScene || (screen === 'intro' && currentArt === 'hub' ? 'dialogue' : screen));
     if (next === 'transmission') sound('transmission');
     if (next === 'ending') sound('ending');
     if (next === 'dialogue' || next === 'intro' && intro[introIndex]?.character === 'ARIA') sound('radio');
@@ -116,12 +123,14 @@
       <div class="menu-content"><div class="location-stamp"><span class="stamp-line"></span><span>NOVARIS</span><span class="location-date">26.10.2149 / 23:47</span></div>
         <h1 class="title-logo"><img src="assets/title.svg" alt="CIPHER OPS"><span class="sr-only">Lost Transmission</span></h1>
         <p class="title-subtitle" aria-hidden="true">LOST TRANSMISSION</p>
-        <p class="menu-tagline">Kota terputus. Tim kamu adalah sinyal terakhir.<span>Pecahkan sandi, pulihkan enam distrik, temukan pengirimnya.</span></p>
+        <p class="menu-tagline">Kota terputus. Tim kamu adalah sinyal terakhir.<span>Pulihkan dua peta dan selesaikan empat topik matematika.</span></p>
         <p class="menu-mode-label">PILIH JALUR OPERASI</p>
         <nav class="menu-actions" aria-label="Menu utama">
           ${action('online', icons.coop + 'MAIN BARENG<span>2–4 DEVICE</span>', 'coop-link room-menu-link')}
+          ${action('courseOpen', `<span>${courseDone() ? 'LIHAT HASIL SOLO' : course ? 'LANJUT MISI SOLO' : 'MULAI MISI SOLO'}</span><small>2 PETA</small>`, 'button ghost wide')}
+          <details class="classic-menu"><summary>Campaign klasik · 6 distrik</summary>
           ${action('new', '<span>NEW GAME</span><span class="keycap">↵</span>', 'button ghost wide')}
-          ${action('continue', `<span>CONTINUE</span><small>${campaign ? escapeHTML(campaign.callsign) + ' / ' + campaign.completed.length + ' OF 6' : 'NO SAVED SIGNAL'}</small>`, 'button ghost wide', campaign ? '' : 'disabled')}
+          ${action('continue', `<span>CONTINUE</span><small>${campaign ? escapeHTML(campaign.callsign) + ' / ' + campaign.completed.length + ' OF 6' : 'NO SAVED SIGNAL'}</small>`, 'button ghost wide', campaign ? '' : 'disabled')}</details>
           ${action('coopSetup', icons.coop + 'LOCAL CO-OP<span>2 PLAYERS</span>', 'coop-link')}
         </nav>
       </div>
@@ -153,24 +162,79 @@
     const footer = entry.callsign ? `<form id="callsign-form" novalidate><div class="callsign-row"><label><span class="field-label">CALLSIGN / MAKS. 16 KARAKTER</span><input class="text-input" name="callsign" placeholder="RUNNER" maxlength="16" autocomplete="off" aria-label="Callsign pemain"></label><button class="button primary" type="submit">MASUK SAFEHOUSE ${icons.arrow}</button></div><p class="field-error" id="callsign-error" role="status"></p></form>` : `<div class="dialogue-footer"><span class="dialogue-counter">0${introIndex + 1} / 04</span>${action('introNext', 'LANJUTKAN ' + icons.arrow, 'button dialogue-next')}</div>`;
     game.innerHTML = scene(`<div class="intro-location"><p class="eyebrow"><span class="dot"></span>${escapeHTML(entry.label)}</p></div>${action('skipIntro', 'SKIP INTRO ' + icons.arrow, 'back-button skip-button')}${dialogueHTML(entry, footer)}`, 'intro-scene'); mount(entry.art);
   }
-  function hub() {
-    if (!campaign) return navigate('menu');
+  function hub(training = false) {
+    if (training ? !course : !campaign) return navigate('menu');
+    if (training && courseDone()) return navigate('courseResult');
+    const dock = screen === 'courseDock';
+    if (dock && course.records.length !== 1) return navigate('courseMap');
+    const name = training ? course.name : campaign.callsign;
     const m = missions[nextMission()];
-    const objective = campaign.completed.length === 6 ? 'Semua distrik tersambung. Masih ada pesan untuk dibaca.' : `M${String(m.id + 1).padStart(2, '0')} / ${m.title} — ${m.district}`;
-    game.innerHTML = scene(`${top('THE SAFEHOUSE', 'NOVARIS / UNDERGROUND LEVEL B–07', 'menu', `<span class="hud-tag"><i></i> ${escapeHTML(campaign.callsign)} ONLINE</span>`)}
-      <div class="hub-overlay"><p class="eyebrow">WELCOME BACK, ${escapeHTML(campaign.callsign)}.</p><p>Dekati terminal untuk membuka soal matematika.</p><div class="exploration-help"><span><kbd>WASD</kbd> / <kbd>↑↓←→</kbd> BERGERAK</span><span><kbd>E</kbd> INTERAKSI</span><span class="click-help">KLIK LANTAI UNTUK BERJALAN</span></div></div>
-      ${action('terminal', '<span class="hotspot-label"><b>01</b><span>CENTRAL TERMINAL<small>SOAL MATEMATIKA</small></span></span>', 'hotspot terminal', 'aria-label="Central Terminal"')}
+    const objective = training ? dock ? 'PETA 02 / RIVERSIDE — Verifikasi sinyal dermaga.' : course.records.length ? 'CENTRAL HUB SELESAI / Buka District Map untuk ke Riverside.' : 'PETA 01 / CENTRAL HUB — Mulai dari Central Terminal.' :
+      campaign.completed.length === 6 ? 'Semua distrik tersambung. Masih ada pesan untuk dibaca.' : `M${String(m.id + 1).padStart(2, '0')} / ${m.title} — ${m.district}`;
+    const terminal = dock ? 'TERMINAL DERMAGA' : 'CENTRAL TERMINAL';
+    const stats = training ? `<span><b>${course.records.length}/2</b> PETA</span><span><b>${courseRules.total(course)}</b> POIN</span><span><b>${course.step}/8</b> SOAL PETA INI</span>` :
+      `<span><b>${campaign.completed.length}/6</b> DISTRICTS</span><span><b>${totalScore()}</b> SCORE</span><span><b>${totalStars()}/18</b> STARS</span>`;
+    game.innerHTML = scene(`${top(dock ? 'RIVERSIDE' : 'THE SAFEHOUSE', dock ? 'NOVARIS / POS DERMAGA' : 'NOVARIS / UNDERGROUND LEVEL B–07', dock ? 'courseMap' : 'menu', `<span class="hud-tag"><i></i> ${escapeHTML(name)} ONLINE</span>`)}
+      <div class="hub-overlay"><p class="eyebrow">WELCOME BACK, ${escapeHTML(name)}.</p><p>Dekati terminal untuk membuka soal matematika.</p><div class="exploration-help"><span><kbd>WASD</kbd> / <kbd>↑↓←→</kbd> BERGERAK</span><span><kbd>E</kbd> INTERAKSI</span><span class="click-help">KLIK LANTAI UNTUK BERJALAN</span></div></div>
+      ${action('terminal', `<span class="hotspot-label"><b>01</b><span>${terminal}<small>SOAL MATEMATIKA</small></span></span>`, 'hotspot terminal', `aria-label="${dock ? 'Terminal Dermaga' : 'Central Terminal'}"`)}
       ${action('map', '<span class="hotspot-label"><b>02</b> DISTRICT MAP</span>', 'hotspot map', 'aria-label="District Map"')}
-      ${action('archive', '<span class="hotspot-label"><b>03</b> MESSAGE ARCHIVE</span>', 'hotspot archive', 'aria-label="Message Archive"')}
-      ${action('aria', '<span class="hotspot-label"><b>04</b> TALK TO ARIA</span>', 'hotspot aria', 'aria-label="Talk to Aria"')}
+      ${dock ? '' : action('archive', '<span class="hotspot-label"><b>03</b> MESSAGE ARCHIVE</span>', 'hotspot archive', 'aria-label="Message Archive"') +
+        action('aria', '<span class="hotspot-label"><b>04</b> TALK TO ARIA</span>', 'hotspot aria', 'aria-label="Talk to Aria"')}
       <div class="world-interaction" hidden><button class="interact-button" data-action="hubInteract" type="button"><kbd>E</kbd><span><strong class="interaction-name"></strong><small class="interaction-verb"></small></span>${icons.arrow}</button></div>
       <div class="touch-movement" role="group" aria-label="Kontrol gerak karakter"><button type="button" data-move="up" aria-label="Gerak ke atas">↑</button><button type="button" data-move="left" aria-label="Gerak ke kiri">←</button><span aria-hidden="true">+</span><button type="button" data-move="right" aria-label="Gerak ke kanan">→</button><button type="button" data-move="down" aria-label="Gerak ke bawah">↓</button></div>
-      <div class="hub-bottom"><div class="objective"><span>CURRENT OBJECTIVE</span><p>${escapeHTML(objective)}</p></div><div class="hud-stats"><span><b>${campaign.completed.length}/6</b> DISTRICTS</span><span><b>${totalScore()}</b> SCORE</span><span><b>${totalStars()}/18</b> STARS</span></div></div>`, 'hub-scene exploration-scene'); mount('hub');
+      <div class="hub-bottom"><div class="objective"><span>CURRENT OBJECTIVE</span><p>${escapeHTML(objective)}</p></div><div class="hud-stats">${stats}</div></div>`, 'hub-scene exploration-scene'); mount(dock ? 'riverside' : 'hub');
     if (window.Safehouse) {
       const room = game.querySelector('.exploration-scene');
-      hubController = window.Safehouse.mount({ scene: room, canvas: room.querySelector('canvas'), initial: hubPosition,
+      const layout = dock ? { bounds: Safehouse.ROOM, spawn: { x: 476, y: 446 }, obstacles: [{ x: 348, y: 300, w: 140, h: 91 }, { x: 777, y: 384, w: 62, h: 54 }],
+        objects: [{ ...Safehouse.OBJECTS[0], name: terminal }, Safehouse.OBJECTS[1]] } : undefined;
+      hubController = window.Safehouse.mount({ scene: room, canvas: room.querySelector('canvas'), initial: hubPosition, layout,
         onInteract: id => { sound(id === 'aria' ? 'radio' : id); handlers[id]?.(); }, onPose: pose => { PixelArt.setActor(pose); window.CipherAudio?.movement(pose); }, onHint: toast, isBlocked: () => modal.open });
     }
+  }
+  function courseEntry() {
+    game.innerHTML = scene(`${top('MISI SOLO', 'CENTRAL HUB → RIVERSIDE', 'menu')}<section class="course-pane"><p class="eyebrow text-cyan">OPERASI DUA PETA</p><h1>Aktifkan kembali jaringan Novaris.</h1><p>Dua peta. Delapan soal per peta mencakup fungsi, nonfungsi, invers, dan cipher. Selesaikan keduanya untuk mendapatkan skor dan sertifikat.</p><form id="course-name-form"><label class="field-label">NAMA PADA SERTIFIKAT<input class="text-input" name="name" maxlength="40" placeholder="Nama kamu" required autocomplete="name"></label><button class="button primary" type="submit">MASUK SAFEHOUSE →</button><p id="course-feedback" class="feedback" role="status"></p></form></section>`, 'course-scene'); mount('terminal');
+  }
+  function courseMap() {
+    if (!course) return navigate('courseEntry');
+    game.innerHTML = scene(`${top('DISTRICT MAP', 'OPERASI DUA PETA', 'courseHub')}<section class="course-pane"><p class="eyebrow text-cyan">${course.records.length}/2 PETA TUNTAS</p><h1>${course.records.length === 1 ? 'Central Hub tersambung.' : 'Rute menuju Riverside'}</h1><p>${course.records.length === 1 ? 'Peta kedua sudah terbuka. Selesaikan soal di Terminal Dermaga untuk menerima hasil akhir dan sertifikat.' : 'Aktifkan Central Terminal lebih dulu. Riverside terbuka setelah semua soal di Central Hub selesai.'}</p><div class="course-map-list">${courseRules.MAPS.map((name, i) => {
+      const record = course.records[i];
+      return `<article><span class="eyebrow">PETA 0${i + 1}</span><h2>${name}</h2>${record ? `<p class="text-green">✓ Tuntas · ${record.score}/150 poin</p>` : i === course.records.length ? action(i ? 'courseDock' : 'courseHub', i ? 'MASUK RIVERSIDE →' : 'KE CENTRAL TERMINAL →', 'button primary') : '<p>🔒 Terkunci</p>'}</article>`;
+    }).join('')}</div>${courseDone() ? action('courseResult', 'LIHAT SKOR DAN SERTIFIKAT →', 'button primary') : ''}</section>`, 'course-scene'); mount('terminal');
+  }
+  function courseQuestion() {
+    if (!course || courseDone()) return navigate(courseDone() ? 'courseResult' : 'courseEntry');
+    const index = course.records.length;
+    const puzzle = courseRules.question(course);
+    const fields = puzzle.options ? `<fieldset class="course-choices"><legend>${escapeHTML(puzzle.format)}</legend>${puzzle.options.map(option => `<label><input type="radio" name="answer" value="${escapeHTML(option)}" required><span>${escapeHTML(option)}</span></label>`).join('')}</fieldset>` :
+      `<label class="field-label">${escapeHTML(puzzle.format)}<input class="text-input" name="answer" maxlength="40" required autocomplete="off" ${puzzle.kind === 'number' ? 'inputmode="numeric"' : 'autocapitalize="characters"'}></label>`;
+    game.innerHTML = scene(`${top(courseRules.MAPS[index].toUpperCase(), 'TERMINAL MATEMATIKA', index ? 'courseDock' : 'courseHub')}<section class="course-pane"><p class="eyebrow text-cyan">PETA ${index + 1}/2 · SOAL ${course.step + 1}/8 · ${puzzle.topic.toUpperCase()}</p><h1>${escapeHTML(puzzle.title)}</h1><p>${escapeHTML(puzzle.brief)}</p><ul class="field-data">${puzzle.lines.map(line => `<li>${escapeHTML(line)}</li>`).join('')}</ul><form id="course-answer-form">${fields}<div class="course-actions"><button class="button primary" type="submit">VERIFIKASI →</button>${action('courseHint', 'Petunjuk / −25 poin', 'button ghost', course.hinted.includes(course.step) ? 'disabled' : '')}</div></form><p id="course-hint" class="course-hint">${course.hinted.includes(course.step) ? escapeHTML(puzzle.hint) : ''}</p><p id="course-feedback" class="feedback" role="status"></p><p class="course-points">Potensi skor peta <strong id="course-points">${courseRules.score(course.wrong, course.hinted.length)}</strong>/150</p></section>`, 'course-scene'); mount('terminal');
+  }
+  function courseResult() {
+    if (!courseDone()) return navigate('courseMap');
+    const records = course.records.map((record, i) => ({ ...record, name: courseRules.MAPS[i] }));
+    game.innerHTML = scene(`${top('HASIL OPERASI', 'PETA 02 / TRANSMISI TERVERIFIKASI', 'menu')}<section class="course-pane course-result"><p class="eyebrow text-green">LULUS · 2/2 PETA TUNTAS</p><h1>Misi selesai.</h1><p>Skor akhir <strong>${courseRules.total(course)}/300 poin</strong>. Sertifikat ini mencatat nama dan skor tiap peta.</p>${window.CipherCertificate.card({ name: course.name, records, completedAt: course.completedAt })}${action('courseReset', 'MULAI MISI BARU', 'button ghost')}</section>`, 'course-scene'); mount('terminal');
+  }
+  function submitCourse(form) {
+    if (screen !== 'courseQuestion' || !course || courseDone()) return;
+    const outcome = courseRules.answer(course, new FormData(form).get('answer'));
+    const feedback = document.querySelector('#course-feedback');
+    if (outcome === 'invalid') { feedback.textContent = 'Isi jawaban sesuai format yang tertera.'; return; }
+    storageWrite(courseRules.KEY, course);
+    if (outcome === 'wrong') {
+      sound('error');
+      feedback.textContent = 'Jawaban belum tepat. Periksa lagi dan coba ulang.';
+      document.querySelector('#course-points').textContent = courseRules.score(course.wrong, course.hinted.length);
+      return;
+    }
+    sound(outcome === 'map-complete' ? 'complete' : 'success');
+    navigate(courseDone() ? 'courseResult' : outcome === 'map-complete' ? 'courseMap' : 'courseQuestion');
+  }
+  function courseHint(button) {
+    if (screen !== 'courseQuestion' || !course || course.hinted.includes(course.step)) return;
+    course.hinted.push(course.step); storageWrite(courseRules.KEY, course);
+    document.querySelector('#course-hint').textContent = courseRules.question(course).hint;
+    document.querySelector('#course-points').textContent = courseRules.score(course.wrong, course.hinted.length);
+    button.disabled = true; sound('hint');
   }
   function districtMap() {
     if (!campaign) return navigate('menu');
@@ -397,11 +461,15 @@
     home: () => { if (screen === 'online' && window.CipherRooms?.hasRoom()) window.CipherRooms.leave(); else if (run?.coop && !run.done) leaveCoop(); else navigate('menu'); }, menu: () => navigate('menu'), new: startNew,
     continue: () => { if (!campaign) return; coop = null; run = null; if (campaign.active) resume(); else navigate('hub'); },
     introNext: () => { introIndex = Math.min(introIndex + 1, intro.length - 1); navigate('intro'); },
-    skipIntro: () => { introIndex = intro.length - 1; navigate('intro'); }, hub: () => navigate('hub'), map: () => navigate('map'),
-    terminal: () => { selectedMission = campaign.active?.mission ?? nextMission(); navigate('briefing'); }, hubInteract: () => hubController?.interact(),
+    skipIntro: () => { introIndex = intro.length - 1; navigate('intro'); }, hub: () => navigate('hub'), map: () => navigate(isCourseHub() ? 'courseMap' : 'map'),
+    terminal: () => {
+      if (isCourseHub()) return navigate(screen === 'courseHub' && course.records.length ? 'courseMap' : 'courseQuestion');
+      selectedMission = campaign.active?.mission ?? nextMission(); navigate('briefing');
+    }, hubInteract: () => hubController?.interact(),
     mission: el => selectMission(Number(el.dataset.id)), startMission: () => beginMission(), resume,
     nextMission: () => selectMission(Math.min(run.mission + 1, 5)), replay: () => beginMission(run.mission), retry: () => run.coop ? resetCoopRound() : beginMission(run.mission),
-    hint: useHint, aria, dialogueChoice: el => dialogueChoice(Number(el.dataset.id)), archive: () => navigate('archive'), settings: showSettings,
+    hint: useHint, aria: () => isCourseHub() ? openModal('PESAN ARIA', '<p class="modal-copy">Selesaikan delapan soal di Central Terminal. Setelah itu, pakai District Map untuk menuju Riverside. Sertifikat terbit setelah kedua peta tuntas.</p>') : aria(),
+    dialogueChoice: el => dialogueChoice(Number(el.dataset.id)), archive: () => navigate(isCourseHub() ? 'courseMap' : 'archive'), settings: showSettings,
     sound: () => { settings.sound = !settings.sound; storageWrite(SETTINGS_KEY, settings); settingsUI(); sound('confirm'); toast(settings.sound ? 'AUDIO ON / Musik kiriman dan efek aktif.' : 'AUDIO OFF / Semua suara dimatikan.'); },
     audioPreview: () => { settings.sound = true; storageWrite(SETTINGS_KEY, settings); settingsUI(); const toggle = document.querySelector('#setting-sound'); if (toggle) toggle.checked = true; window.CipherAudio?.unlock(); window.CipherAudio?.preview(); },
     resetSave: () => confirmModal('ERASE SAVED SIGNAL?', 'Hapus callsign, skor, petunjuk, dan progres campaign di browser ini? Tindakan ini tidak bisa dibatalkan.', 'HAPUS SAVE', () => {
@@ -411,7 +479,13 @@
     coopSetup: () => navigate('coopSetup'), leaveCoop,
     receiverReady: () => { if (!coop || screen !== 'handoff') return; coop.role = 'receiver'; navigate('puzzle'); },
     nextCoop: () => { if (!coop || !run.done || coop.round >= 2) return; coop.round++; resetCoopRound(); },
-    finishCoop: () => { coop = null; run = null; navigate('menu'); }, ending: () => navigate('ending')
+    finishCoop: () => { coop = null; run = null; navigate('menu'); }, ending: () => navigate('ending'),
+    courseOpen: () => { coop = null; run = null; navigate(courseDone() ? 'courseResult' : !course ? 'courseEntry' : course.records.length ? 'courseMap' : 'courseHub'); },
+    courseHub: () => navigate('courseHub'), courseDock: () => navigate('courseDock'),
+    courseMap: () => navigate('courseMap'), courseResult: () => navigate('courseResult'), courseHint,
+    courseReset: () => confirmModal('MULAI MISI SOLO BARU?', 'Skor dan sertifikat misi solo sebelumnya akan diganti. Unduh sertifikat terlebih dahulu untuk menyimpannya.', 'MULAI BARU', () => {
+      course = null; try { localStorage.removeItem(courseRules.KEY); } catch (_) {} navigate('courseEntry');
+    })
   };
   document.addEventListener('click', event => {
     window.CipherAudio?.unlock();
@@ -419,12 +493,19 @@
     const button = event.target.closest('[data-action]');
     if (!button || button.disabled) return;
     const handler = handlers[button.dataset.action]; if (!handler) return;
-    if (screen === 'hub' && hubController && button.classList?.contains?.('hotspot')) { hubController.approach(button.dataset.action); return; }
+    if ((screen === 'hub' || isCourseHub()) && hubController && button.classList?.contains?.('hotspot')) { hubController.approach(button.dataset.action); return; }
     const sounds = { new: 'confirm', continue: 'confirm', startMission: 'terminal', resume: 'terminal', map: 'map', archive: 'archive', aria: 'radio', hint: 'hint', retry: 'confirm', receiverReady: 'confirm', nextCoop: 'confirm' };
     if (!['sound', 'audioPreview', 'hubInteract', 'ending'].includes(button.dataset.action)) sound(sounds[button.dataset.action] || 'click'); handler(button);
   });
   document.addEventListener('submit', event => {
     event.preventDefault();
+    if (event.target.id === 'course-answer-form') return submitCourse(event.target);
+    if (event.target.id === 'course-name-form' && screen === 'courseEntry') {
+      const name = String(new FormData(event.target).get('name') || '').trim().normalize('NFC');
+      const next = courseRules.validate(courseRules.create(name));
+      if (!next) { document.querySelector('#course-feedback').textContent = 'Masukkan nama 1–40 karakter untuk sertifikat.'; return; }
+      course = next; storageWrite(courseRules.KEY, course); sound('confirm'); return navigate('courseHub');
+    }
     if (event.target.id === 'puzzle-form') return submitPuzzle(event.target);
     if (event.target.id === 'callsign-form') {
       const callsign = event.target.elements.callsign.value.trim().toUpperCase() || 'RUNNER';
@@ -456,6 +537,7 @@
   document.addEventListener('keydown', event => { window.CipherAudio?.unlock(); if (event.key === 'Escape' && !modal.open && screen !== 'menu') showSettings(); });
   document.addEventListener('visibilitychange', () => window.CipherAudio?.setVisible(!document.hidden));
   window.addEventListener?.('cipher-room-status', event => { const indicator = document.querySelector('.local-indicator'); if (indicator) indicator.innerHTML = '<i></i> ' + (event.detail ? 'TEAM SESSION / LIVE' : 'LOCAL SESSION'); });
-  load(); if (window.CipherAudio) { window.CipherAudio.setStatusListener(audioStatus); window.CipherAudio.setVisible(!document.hidden); } settingsUI(); navigate('menu');
+  load(); course = courseRules?.validate(storageRead(courseRules.KEY)) || null;
+  if (window.CipherAudio) { window.CipherAudio.setStatusListener(audioStatus); window.CipherAudio.setVisible(!document.hidden); } settingsUI(); navigate('menu');
   if (window.CipherRooms && (window.CipherRooms.hasInvitation?.() || window.CipherRooms.hasSavedSession())) navigate('online');
 })();
