@@ -97,14 +97,15 @@ test('solo terminal and map unlock Riverside after all topics and issue a downlo
   assert.equal(saved().hinted.length, 1);
   for (let map = 0; map < 2; map++) {
     const topics = [];
-    for (let step = 0; step < 8; step++) {
+    for (let step = 0; step < 3; step++) {
       const puzzle = course.question(saved());
       topics.push(puzzle.topic);
       assert.ok(app.has(puzzle.title));
-      app.submit('course-answer-form', { answer: puzzle.answers.at(-1) });
+      app.submit('course-answer-form', { answer: puzzle.kind === 'list' ? '[17,18]' : puzzle.answers.at(-1) });
+      assert.match(app.modal.innerHTML, /PEMBAHASAN/);
+      app.click('closeModal');
     }
-    assert.equal(new Set(topics.slice(0, 4)).size, 4);
-    assert.equal(new Set(topics.slice(4)).size, 4);
+    assert.deepEqual(topics, map === 0 ? ['Cipher', 'Invers', 'Komposisi'] : ['Invers', 'Aljabar Fungsi', 'Cipher']);
     if (map === 0) {
       assert.ok(app.has('MASUK RIVERSIDE'));
       assert.ok(!app.has('Unduh sertifikat'));

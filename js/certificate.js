@@ -23,8 +23,8 @@
         <text x="500" y="198" font-size="38" font-weight="bold">Sertifikat Lulus</text>
         <text x="500" y="235" font-size="17">Diberikan kepada</text>
         <text x="500" y="292" font-size="${size}" font-weight="bold">${cleanName}</text>
-        <text x="500" y="331" font-size="17">Menyelesaikan dua peta dan empat topik matematika</text>
-        <text x="500" y="358" font-size="16">Fungsi · Nonfungsi · Invers · Cipher</text>
+        <text x="500" y="331" font-size="17">Menyelesaikan dua peta dalam Operasi Novaris</text>
+        <text x="500" y="358" font-size="16">Invers · Komposisi · Aljabar Fungsi · Cipher</text>
         <path fill="#dbece7" d="M121 388h758v83H121z"/>
         <path stroke="#aec8c0" d="M373 402v55m254-55v55"/>
         ${[...records.map(r => [r.name.toUpperCase(), r.score + ' / 150']), [mode, total + ' / 300']].map(([label, points], i) => `<text x="${247 + i * 253}" y="417" font-size="13" letter-spacing="2">${esc(label)}</text><text x="${247 + i * 253}" y="449" font-size="26" font-weight="bold">${esc(points)}</text>`).join('')}

@@ -123,7 +123,7 @@
       <div class="menu-content"><div class="location-stamp"><span class="stamp-line"></span><span>NOVARIS</span><span class="location-date">26.10.2149 / 23:47</span></div>
         <h1 class="title-logo"><img src="assets/title.svg" alt="CIPHER OPS"><span class="sr-only">Lost Transmission</span></h1>
         <p class="title-subtitle" aria-hidden="true">LOST TRANSMISSION</p>
-        <p class="menu-tagline">Kota terputus. Tim kamu adalah sinyal terakhir.<span>Pulihkan dua peta dan selesaikan empat topik matematika.</span></p>
+        <p class="menu-tagline">Kota terputus. Tim kamu adalah sinyal terakhir.<span>Pulihkan dua peta dan pecahkan soal matematika dan sandi.</span></p>
         <p class="menu-mode-label">PILIH JALUR OPERASI</p>
         <nav class="menu-actions" aria-label="Menu utama">
           ${action('online', icons.coop + 'MAIN BARENG<span>2–4 DEVICE</span>', 'coop-link room-menu-link')}
@@ -172,7 +172,7 @@
     const objective = training ? dock ? 'PETA 02 / RIVERSIDE — Verifikasi sinyal dermaga.' : course.records.length ? 'CENTRAL HUB SELESAI / Buka District Map untuk ke Riverside.' : 'PETA 01 / CENTRAL HUB — Mulai dari Central Terminal.' :
       campaign.completed.length === 6 ? 'Semua distrik tersambung. Masih ada pesan untuk dibaca.' : `M${String(m.id + 1).padStart(2, '0')} / ${m.title} — ${m.district}`;
     const terminal = dock ? 'TERMINAL DERMAGA' : 'CENTRAL TERMINAL';
-    const stats = training ? `<span><b>${course.records.length}/2</b> PETA</span><span><b>${courseRules.total(course)}</b> POIN</span><span><b>${course.step}/8</b> SOAL PETA INI</span>` :
+    const stats = training ? `<span><b>${course.records.length}/2</b> PETA</span><span><b>${courseRules.total(course)}</b> POIN</span><span><b>${course.step}/${courseRules.QUESTION_COUNT}</b> SOAL PETA INI</span>` :
       `<span><b>${campaign.completed.length}/6</b> DISTRICTS</span><span><b>${totalScore()}</b> SCORE</span><span><b>${totalStars()}/18</b> STARS</span>`;
     game.innerHTML = scene(`${top(dock ? 'RIVERSIDE' : 'THE SAFEHOUSE', dock ? 'NOVARIS / POS DERMAGA' : 'NOVARIS / UNDERGROUND LEVEL B–07', dock ? 'courseMap' : 'menu', `<span class="hud-tag"><i></i> ${escapeHTML(name)} ONLINE</span>`)}
       <div class="hub-overlay"><p class="eyebrow">WELCOME BACK, ${escapeHTML(name)}.</p><p>Dekati terminal untuk membuka soal matematika.</p><div class="exploration-help"><span><kbd>WASD</kbd> / <kbd>↑↓←→</kbd> BERGERAK</span><span><kbd>E</kbd> INTERAKSI</span><span class="click-help">KLIK LANTAI UNTUK BERJALAN</span></div></div>
@@ -192,7 +192,7 @@
     }
   }
   function courseEntry() {
-    game.innerHTML = scene(`${top('MISI SOLO', 'CENTRAL HUB → RIVERSIDE', 'menu')}<section class="course-pane"><p class="eyebrow text-cyan">OPERASI DUA PETA</p><h1>Aktifkan kembali jaringan Novaris.</h1><p>Dua peta. Delapan soal per peta mencakup fungsi, nonfungsi, invers, dan cipher. Selesaikan keduanya untuk mendapatkan skor dan sertifikat.</p><form id="course-name-form"><label class="field-label">NAMA PADA SERTIFIKAT<input class="text-input" name="name" maxlength="40" placeholder="Nama kamu" required autocomplete="name"></label><button class="button primary" type="submit">MASUK SAFEHOUSE →</button><p id="course-feedback" class="feedback" role="status"></p></form></section>`, 'course-scene'); mount('terminal');
+    game.innerHTML = scene(`${top('MISI SOLO', 'CENTRAL HUB → RIVERSIDE', 'menu')}<section class="course-pane"><p class="eyebrow text-cyan">OPERASI DUA PETA</p><h1>Aktifkan kembali jaringan Novaris.</h1><p>Dua peta. Tiga soal per peta tentang invers, komposisi, aljabar fungsi, dan sandi. Selesaikan keduanya untuk mendapatkan skor dan sertifikat.</p><form id="course-name-form"><label class="field-label">NAMA PADA SERTIFIKAT<input class="text-input" name="name" maxlength="40" placeholder="Nama kamu" required autocomplete="name"></label><button class="button primary" type="submit">MASUK SAFEHOUSE →</button><p id="course-feedback" class="feedback" role="status"></p></form></section>`, 'course-scene'); mount('terminal');
   }
   function courseMap() {
     if (!course) return navigate('courseEntry');
@@ -207,7 +207,7 @@
     const puzzle = courseRules.question(course);
     const fields = puzzle.options ? `<fieldset class="course-choices"><legend>${escapeHTML(puzzle.format)}</legend>${puzzle.options.map(option => `<label><input type="radio" name="answer" value="${escapeHTML(option)}" required><span>${escapeHTML(option)}</span></label>`).join('')}</fieldset>` :
       `<label class="field-label">${escapeHTML(puzzle.format)}<input class="text-input" name="answer" maxlength="40" required autocomplete="off" ${puzzle.kind === 'number' ? 'inputmode="numeric"' : 'autocapitalize="characters"'}></label>`;
-    game.innerHTML = scene(`${top(courseRules.MAPS[index].toUpperCase(), 'TERMINAL MATEMATIKA', index ? 'courseDock' : 'courseHub')}<section class="course-pane"><p class="eyebrow text-cyan">PETA ${index + 1}/2 · SOAL ${course.step + 1}/8 · ${puzzle.topic.toUpperCase()}</p><h1>${escapeHTML(puzzle.title)}</h1><p>${escapeHTML(puzzle.brief)}</p><ul class="field-data">${puzzle.lines.map(line => `<li>${escapeHTML(line)}</li>`).join('')}</ul><form id="course-answer-form">${fields}<div class="course-actions"><button class="button primary" type="submit">VERIFIKASI →</button>${action('courseHint', 'Petunjuk / −25 poin', 'button ghost', course.hinted.includes(course.step) ? 'disabled' : '')}</div></form><p id="course-hint" class="course-hint">${course.hinted.includes(course.step) ? escapeHTML(puzzle.hint) : ''}</p><p id="course-feedback" class="feedback" role="status"></p><p class="course-points">Potensi skor peta <strong id="course-points">${courseRules.score(course.wrong, course.hinted.length)}</strong>/150</p></section>`, 'course-scene'); mount('terminal');
+    game.innerHTML = scene(`${top(courseRules.MAPS[index].toUpperCase(), 'TERMINAL MATEMATIKA', index ? 'courseDock' : 'courseHub')}<section class="course-pane"><p class="eyebrow text-cyan">PETA ${index + 1}/2 · SOAL ${course.step + 1}/${courseRules.QUESTION_COUNT} · ${puzzle.topic.toUpperCase()}</p><h1>${escapeHTML(puzzle.title)}</h1><p>${escapeHTML(puzzle.brief)}</p><ul class="field-data">${puzzle.lines.map(line => `<li>${escapeHTML(line)}</li>`).join('')}</ul><form id="course-answer-form">${fields}<div class="course-actions"><button class="button primary" type="submit">VERIFIKASI →</button>${action('courseHint', 'Petunjuk / −25 poin', 'button ghost', course.hinted.includes(course.step) ? 'disabled' : '')}</div></form><p id="course-hint" class="course-hint">${course.hinted.includes(course.step) ? escapeHTML(puzzle.hint) : ''}</p><p id="course-feedback" class="feedback" role="status"></p><p class="course-points">Potensi skor peta <strong id="course-points">${courseRules.score(course.wrong, course.hinted.length)}</strong>/150</p></section>`, 'course-scene'); mount('terminal');
   }
   function courseResult() {
     if (!courseDone()) return navigate('courseMap');
@@ -216,6 +216,7 @@
   }
   function submitCourse(form) {
     if (screen !== 'courseQuestion' || !course || courseDone()) return;
+    const puzzle = courseRules.question(course);
     const outcome = courseRules.answer(course, new FormData(form).get('answer'));
     const feedback = document.querySelector('#course-feedback');
     if (outcome === 'invalid') { feedback.textContent = 'Isi jawaban sesuai format yang tertera.'; return; }
@@ -228,6 +229,7 @@
     }
     sound(outcome === 'map-complete' ? 'complete' : 'success');
     navigate(courseDone() ? 'courseResult' : outcome === 'map-complete' ? 'courseMap' : 'courseQuestion');
+    openModal('PEMBAHASAN', `<p class="modal-copy">${escapeHTML(puzzle.explanation)}</p><div class="modal-actions">${action('closeModal', 'LANJUT →', 'button primary')}</div>`);
   }
   function courseHint(button) {
     if (screen !== 'courseQuestion' || !course || course.hinted.includes(course.step)) return;
@@ -468,7 +470,7 @@
     }, hubInteract: () => hubController?.interact(),
     mission: el => selectMission(Number(el.dataset.id)), startMission: () => beginMission(), resume,
     nextMission: () => selectMission(Math.min(run.mission + 1, 5)), replay: () => beginMission(run.mission), retry: () => run.coop ? resetCoopRound() : beginMission(run.mission),
-    hint: useHint, aria: () => isCourseHub() ? openModal('PESAN ARIA', '<p class="modal-copy">Selesaikan delapan soal di Central Terminal. Setelah itu, pakai District Map untuk menuju Riverside. Sertifikat terbit setelah kedua peta tuntas.</p>') : aria(),
+    hint: useHint, aria: () => isCourseHub() ? openModal('PESAN ARIA', '<p class="modal-copy">Selesaikan tiga soal di Central Terminal. Setelah itu, pakai District Map untuk menuju Riverside. Sertifikat terbit setelah kedua peta tuntas.</p>') : aria(),
     dialogueChoice: el => dialogueChoice(Number(el.dataset.id)), archive: () => navigate(isCourseHub() ? 'courseMap' : 'archive'), settings: showSettings,
     sound: () => { settings.sound = !settings.sound; storageWrite(SETTINGS_KEY, settings); settingsUI(); sound('confirm'); toast(settings.sound ? 'AUDIO ON / Musik kiriman dan efek aktif.' : 'AUDIO OFF / Semua suara dimatikan.'); },
     audioPreview: () => { settings.sound = true; storageWrite(SETTINGS_KEY, settings); settingsUI(); const toggle = document.querySelector('#setting-sound'); if (toggle) toggle.checked = true; window.CipherAudio?.unlock(); window.CipherAudio?.preview(); },

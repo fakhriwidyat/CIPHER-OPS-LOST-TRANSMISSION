@@ -66,7 +66,7 @@ function shuffle(values, rand) {
 function layout(room) {
   const spec = districts[room.mission], detail = mapDetails[room.mission], { route, tasks, fault } = room.field;
   const stations = (detail.stations || points).map(([x, y], i) => ({ id: String(i), name: spec.names[i], verb: 'Buka panel', x, y, face: 'up' }));
-  const open = isTraining(room) ? tasks[3].done : room.mission === 1 ? route === 'Jembatan' : tasks[1].done || fault.resolved === 'repair';
+  const open = room.field.shortCourse ? tasks[0].done : isTraining(room) ? tasks[3].done : room.mission === 1 ? route === 'Jembatan' : tasks[1].done || fault.resolved === 'repair';
   const gates = [{ ...gate, open, label: room.mission === 1 ? 'Jembatan' : 'Jalur pintas' }];
   if (room.mission === 1) gates.push({ ...dockGate, open: isTraining(room) ? tasks[2].done : route === 'Dermaga', label: 'Akses dermaga' });
   const [x, y, w, h] = spec.prop;
@@ -79,8 +79,8 @@ function layout(room) {
     obstacles: [...walls, { x, y, w, h }, ...gates.filter(g => !g.open)]
   };
 }
-export function beginField(room, now) {
-  const rand = randomFor(room), bank = bankFor(room);
+function explorationTasks(room, rand) {
+  const bank = bankFor(room);
   const crew = room.players;
   const leaders = ROLES.map(role => crew.find(p => p.role === role));
   const load = new Map(crew.map(p => [p.id, 0]));
@@ -93,12 +93,11 @@ export function beginField(room, now) {
   }
   const chosen = ROLES.map((_, i) => 2 * i + rand(2));
   // Riverside always includes the bridge/dock decision among its work orders.
-  if (!isTraining(room) && room.mission === 1) chosen[3] = 6;
-  if (!isTraining(room) && (room.mission === 2 || room.mission === 3)) chosen[1] = 3;
+  if (room.mission === 1) chosen[3] = 6;
+  if (room.mission === 2 || room.mission === 3) chosen[1] = 3;
   const alternates = shuffle(chosen.map((index, i) => 4 * i + 1 - index), rand);
   const extra = shuffle([...bank.keys()], rand);
-  const count = isTraining(room) ? Math.min(bank.length, crew.length * 3) : crew.length * 3;
-  const selection = [...chosen, ...alternates, ...extra].slice(0, count);
+  const selection = [...chosen, ...alternates, ...extra].slice(0, crew.length * 3);
   const variants = bank.map(() => rand(8));
   const tasks = [];
   // Reserve each picked operator's first task before redistributing unpicked roles.
@@ -114,7 +113,14 @@ export function beginField(room, now) {
     const clueAt = id === 'fragments' ? [0, 2][variant % 2] : id === 'split-packet' ? [2, 3][variant % 2] : null;
     tasks.push({ id: 'job-' + i, index, station, variant, owner, source, clueAt, clueRead: false, packet: 1 + rand(9), done: false });
   }
-  room.field = { tasks, fault: { active: false, resolved: null, variant: rand(8) }, route: null, weights: shuffle([1, 2, 3, 4], rand), lastPing: {}, result: null };
+  return tasks;
+}
+export function beginField(room, now) {
+  const rand = randomFor(room), crew = room.players, shortCourse = isTraining(room);
+  const tasks = shortCourse ? course.QUESTIONS[room.mission].map((_, i) => ({
+    index: i, id: 'job-' + i, station: [0, 1, 4][i], owner: crew[i % crew.length].id, source: null, done: false
+  })) : explorationTasks(room, rand);
+  room.field = { tasks, shortCourse, fixedQuestions: shortCourse, fault: { active: false, resolved: null, variant: rand(8) }, route: null, weights: shuffle([1, 2, 3, 4], rand), lastPing: {}, result: null };
   for (const p of crew) {
     p.fieldPose = { x: SPAWN.x + 33 * (p.slot % 2), y: SPAWN.y + 22 * Math.floor(p.slot / 2), direction: 'up', moving: false, seq: 0, at: now };
     p.fieldPanel = null; p.fieldHints = []; p.lastAttempt = 0;
@@ -203,6 +209,7 @@ function available(room, p, task, now) {
   const owner = room.players.find(q => q.id === task.owner);
   const canHelp = !owner || now - owner.seen >= 18000 || !tasks.some(t => t.owner === p.id && !t.done);
   if (task.done) return 'selesai';
+  if (room.field.fixedQuestions && task.index > 0 && !tasks[task.index - 1].done) return 'menunggu soal sebelumnya';
   if (fault.active && !fault.resolved && affected[room.mission](task)) return 'gangguan';
   if (task.clueAt != null && !task.clueRead) return 'cari di ' + districts[room.mission].names[task.clueAt];
   if (task.source !== null && !tasks[task.source].done) return 'menunggu paket';
@@ -212,9 +219,10 @@ function finalReady(field) { return field.tasks.every(t => t.done) && !!field.fa
 function optionsAt(room, p, station, now) {
   const { tasks, fault } = room.field, district = districts[room.mission];
   const options = tasks.filter(t => t.station === station).map(t => ({
-    id: t.id, title: bankFor(room)[t.index].title, state: available(room, p, t, now), owner: t.owner,
-    ...(isTraining(room) ? { topic: course.topicFor(t.index) } : {}),
-    ...(t.done && t.source === null ? { packet: t.packet } : {})
+    id: t.id, title: room.field.fixedQuestions ? course.QUESTIONS[room.mission][t.index].title : bankFor(room)[t.index].title,
+    state: available(room, p, t, now), owner: t.owner,
+    ...(isTraining(room) ? { topic: room.field.fixedQuestions ? course.QUESTIONS[room.mission][t.index].topic : course.topicFor(t.index) } : {}),
+    ...(t.done && t.packet ? { packet: t.packet } : {})
   }));
   for (const task of tasks.filter(t => t.clueAt === station)) {
     const template = bankFor(room)[task.index];
@@ -225,7 +233,7 @@ function optionsAt(room, p, station, now) {
   }
   if (fault.active && !fault.resolved && station === district.repair) options.unshift({ id: 'repair', title: 'Perbaiki gangguan', state: 'siap' });
   if (fault.active && !fault.resolved && station === district.bypass) options.unshift({ id: 'bypass', title: 'Aktifkan jalur cadangan', state: 'siap' });
-  if (station === 4) options.push({ id: 'final', title: 'Gabungkan paket tim', state: finalReady(room.field) ? 'siap' : 'menunggu tim' });
+  if (station === 4 && !room.field.shortCourse) options.push({ id: 'final', title: 'Gabungkan paket tim', state: finalReady(room.field) ? 'siap' : 'menunggu tim' });
   return options;
 }
 function puzzleFor(room, id) {
@@ -233,6 +241,7 @@ function puzzleFor(room, id) {
   if (id === 'final') return finalPuzzle(room);
   const t = room.field.tasks.find(task => task.id === id);
   if (!t) return null;
+  if (room.field.fixedQuestions) return course.QUESTIONS[room.mission][t.index];
   const template = bankFor(room)[t.index];
   const puzzle = { title: template.title, ...template.build(t.variant) };
   if (isTraining(room)) puzzle.topic = course.topicFor(t.index);
@@ -250,11 +259,11 @@ export function fieldSnapshot(room, p, now) {
   const work = map.objects.map((_, i) => optionsAt(room, p, i, now));
   let puzzle = null;
   if (panel?.id && work[panel.station].some(t => t.id === panel.id && t.state === 'siap')) {
-    const { answers, packet, hint, ...visible } = puzzleFor(room, panel.id);
+    const { answers, explanation, packet, hint, ...visible } = puzzleFor(room, panel.id);
     puzzle = { ...visible, hint: p.fieldHints.includes(panel.id) ? hint : null };
   }
   return {
-    map, work, panel: panel ? { ...panel, puzzle } : null, goal: district.goal, route: field.route,
+    map, work, panel: panel ? { ...panel, puzzle } : null, goal: field.shortCourse ? 'Jawab tiga soal bersama untuk memulihkan sinyal.' : district.goal, route: field.route,
     completed: field.tasks.filter(t => t.done).length, total: field.tasks.length, finalReady: finalReady(field),
     fault: { active: field.fault.active, resolved: field.fault.resolved, title: district.fault, repair: district.repair, bypass: district.bypass },
     poses: room.players.map(q => ({ id: q.id, ...q.fieldPose, at: undefined, seq: q.id === p.id ? q.fieldPose.seq : undefined }))
@@ -292,7 +301,7 @@ export function fieldCommand(room, p, input, now, fail, log) {
     return { message: 'Petunjuk terbuka.' };
   }
   fail(activeCrew < 2, 'Butuh minimal dua operator terhubung. Temanmu bisa menyambung kembali.', 409);
-  const answer = parseAnswer(puzzle, input.answer);
+  const answer = field.fixedQuestions ? course.normalize(puzzle, input.answer) : parseAnswer(puzzle, input.answer);
   fail(answer === null || (puzzle.packetSource && !/^[1-9]$/.test(String(input.packet ?? ''))), 'Isi semua jawaban sesuai format.');
   fail(p.lastAttempt && now - p.lastAttempt < 700, 'Tunggu sebentar sebelum mencoba lagi.', 429);
   p.lastAttempt = now;
@@ -312,6 +321,10 @@ export function fieldCommand(room, p, input, now, fail, log) {
   } else {
     const task = field.tasks.find(t => t.id === taskId);
     task.done = true;
+    if (field.shortCourse) {
+      log(room, `${p.name} memverifikasi ${puzzle.title.toLowerCase()}.`, now);
+      return { correct: true, finish: field.tasks.every(t => t.done), message: puzzle.explanation || 'Panel terverifikasi.' };
+    }
     if (task.source === null) log(room, `${ROLES[task.station].toUpperCase()} · ${district.names[station]} merilis paket ${task.packet}.`, now);
     else log(room, `${p.name} menyambungkan ${puzzle.title.toLowerCase()} di ${district.names[station]}.`, now);
     if (bankFor(room)[task.index].id === 'canal-cost' && !field.route) { field.route = answer; log(room, `Akses ${field.route} sekarang terbuka.`, now); }

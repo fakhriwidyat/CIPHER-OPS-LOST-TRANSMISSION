@@ -158,20 +158,16 @@ for (const count of [2, 3, 4]) test(`${count} trainees receive completion only a
     const initial = t.view(t.host);
     assert.equal(initial.mapCount, 2);
     assert.equal(initial.completedAt, undefined);
-    assert.deepEqual(new Set(initial.field.work.flat().map(job => job.topic).filter(Boolean)), new Set(course.TOPICS));
+    assert.deepEqual(new Set(initial.field.work.flat().map(job => job.topic).filter(Boolean)), new Set(course.QUESTIONS[mission].map(puzzle => puzzle.topic)));
     assert.equal(new Set(field.tasks.map(task => task.index)).size, field.tasks.length);
-    for (const [i, task] of field.tasks.entries()) {
-      if (i === 2) {
-        const fault = t.view(t.host).field.fault, v = field.fault.variant;
-        t.solve(t.host, fault.repair, 'repair', String(mission ? v + 11 : v + 19));
-      }
+    assert.equal(initial.field.work.flat().length, 3);
+    for (const task of field.tasks) {
       const owner = t.room.players.find(p => p.id === task.owner);
-      const answer = course.BANKS[mission][task.index].build(task.variant).answers[0];
+      const puzzle = course.QUESTIONS[mission][task.index];
+      const answer = puzzle.kind === 'list' ? '[17, 18]' : puzzle.answers.at(-1);
       const packet = task.source === null ? undefined : String(field.tasks[task.source].packet);
       t.solve(owner, task.station, task.id, answer, packet);
     }
-    const checksum = field.tasks.slice(0, 4).reduce((sum, task, i) => sum + task.packet * field.weights[i], 0);
-    t.solve(t.host, 4, 'final', String(checksum % (mission ? 11 : 10)));
     const result = t.view(t.host);
     assert.equal(result.total, (mission + 1) * 150);
     assert.equal(result.phase, mission ? 'finished' : 'result');

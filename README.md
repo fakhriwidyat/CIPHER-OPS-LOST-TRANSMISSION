@@ -64,9 +64,9 @@ Pada **Misi Solo**, dekati **Central Terminal** untuk mengerjakan soal. Pada Cam
 
 ## Operasi Dua Peta
 
-- Solo: pilih **Mulai Misi Solo**, isi nama sertifikat, lalu kerjakan delapan soal di **Central Terminal**. Setelah **Central Hub** tuntas, masuk **Riverside** dari **District Map** dan selesaikan delapan soal di **Terminal Dermaga**.
-- Tim: pilih **Main Bareng → Operasi 2 Peta + Sertifikat** ketika membuat room. Masing-masing peta mencakup keempat topik. Host membuka Riverside setelah tim memulihkan pemancar Central Hub.
-- Kedua peta mencakup fungsi, nonfungsi, invers, dan cipher. Skor maksimal 150 per peta. Jawaban salah bisa diulang, dengan penalti skor. Setelah dua peta tuntas, unduh sertifikat SVG yang memuat nama, tanggal, rincian skor per peta, dan total dari 300 poin. Sertifikat room memakai callsign tiap pemain dan skor tim.
+- Solo: pilih **Mulai Misi Solo**, isi nama sertifikat, lalu kerjakan tiga soal di **Central Terminal**. Setelah **Central Hub** tuntas, masuk **Riverside** dari **District Map** dan selesaikan tiga soal di **Terminal Dermaga**.
+- Tim: pilih **Main Bareng → Operasi 2 Peta + Sertifikat** ketika membuat room. Tim mengerjakan tiga soal bersama di setiap peta. Host membuka Riverside setelah tim memulihkan pemancar Central Hub.
+- Enam soal mencakup invers, komposisi, aljabar fungsi, dan cipher. Skor maksimal 150 per peta. Jawaban salah bisa diulang, dengan penalti skor. Setelah dua peta tuntas, unduh sertifikat SVG yang memuat nama, tanggal, rincian skor per peta, dan total dari 300 poin. Sertifikat room memakai callsign tiap pemain dan skor tim.
 
 ## Menjalankan preview dan pengujian
 
