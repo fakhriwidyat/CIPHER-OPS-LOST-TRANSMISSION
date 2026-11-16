@@ -4,8 +4,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 const path = require('node:path');
-const { math, missions, SAVE_KEY, SETTINGS_KEY } = require('../js/data.js');
-const course = require('../js/course.js');
+const { math, missions, districtScenes, SAVE_KEY, SETTINGS_KEY } = require('../js/data.js');
 function setup(savedEntries = []) {
   const store = new Map(savedEntries), listeners = {}, timers = new Map(), nodes = new Map(); let timerId = 0;
   function node() { return { innerHTML: '', textContent: '', hidden: true, disabled: false, isConnected: true, open: false, offsetWidth: 500, classList: { add() {}, remove() {}, toggle() {} }, setAttribute() {}, focus() {}, addEventListener() {}, showModal() { this.open = true; }, close() { this.open = false; }, getBoundingClientRect() { return { left: 0, right: 500, top: 0, bottom: 500 }; } }; }
@@ -18,7 +17,7 @@ function setup(savedEntries = []) {
   const context = { document, PixelArt, localStorage: { getItem: key => store.get(key) || null, setItem: (key, value) => store.set(key, value), removeItem: key => store.delete(key) }, setTimeout: (callback, ms) => { const id = ++timerId; timers.set(id, { callback, ms }); return id; }, clearTimeout: id => timers.delete(id), FormData: class { constructor(form) { this.data = form.values; } get(key) { return this.data[key] ?? null; } } };
   context.window = { matchMedia: () => ({ matches: false }), PixelArt };
   vm.createContext(context);
-  for (const file of ['data.js', 'course.js', 'certificate.js', 'game.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/', file), 'utf8'), context, { filename: file });
+  for (const file of ['data.js', 'game.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/', file), 'utf8'), context, { filename: file });
   const click = (name, id) => listeners.click({ target: { closest: () => ({ dataset: { action: name, id: String(id) }, disabled: false }) } });
   const submit = (id, values) => listeners.submit({ preventDefault() {}, target: { id, values, elements: Object.fromEntries(Object.entries(values).map(([key, value]) => [key, { value }])) } });
   const save = () => JSON.parse(store.get(SAVE_KEY));
@@ -54,11 +53,12 @@ test('empty and malformed answers do not cost lives; wrong valid answers and hin
   app.submit('puzzle-form', { 'value-0': '1', 'value-1': '21' }); assert.equal(app.save().active.health, 2);
   app.click('hint'); app.click('hint'); assert.equal(app.save().active.hints, 1); assert.equal(app.save().active.penaltyHints, 1);
   app.answerStage(0, 0); assert.deepEqual(app.save().records[0], { score: 65, stars: 1 });
+  app.click('cutsceneNext'); app.click('cutsceneNext');
   app.click('replay'); app.answerStage(0, 0); assert.deepEqual(app.save().records[0], { score: 150, stars: 3 });
   app.click('replay'); app.answerStage(0, 0); assert.deepEqual(app.save().completed, [0]); assert.equal(app.save().records[0].score, 150); assert.equal(app.save().clues.length, 1);
 });
 test('three errors fail a mission, protect prior progress, and retry resets mission state', () => {
-  const app = setup(); app.start(); app.open(0); app.answerStage(0, 0); app.click('nextMission'); app.click('startMission');
+  const app = setup(); app.start(); app.open(0); app.answerStage(0, 0); app.click('cutsceneNext'); app.click('cutsceneNext'); app.click('nextMission'); app.click('startMission');
   for (let i = 0; i < 3; i++) app.submit('puzzle-form', { option: '0' });
   assert.ok(app.has('CONNECTION LOST')); assert.deepEqual(app.save().completed, [0]); assert.equal(app.save().active, null);
   app.submit('puzzle-form', { option: '1' }); assert.deepEqual(app.save().completed, [0]);
@@ -74,55 +74,40 @@ test('all six missions require all stages, finish the campaign, and restore save
       if (stage < missions[id].stages.length - 1) assert.ok(!app.save().completed.includes(id));
     }
     assert.ok(app.save().completed.includes(id));
+    for (const line of districtScenes[id]) {
+      assert.ok(app.has(line.text));
+      app.click('cutsceneNext');
+    }
   }
   assert.equal(Object.values(app.save().records).reduce((s, r) => s + r.score, 0), 900);
-  app.click('ending'); assert.ok(app.has('THE CITY')); assert.ok(app.has('900')); assert.ok(app.has('18/18'));
+  assert.ok(app.has('AKSES RUANG BAWAH CORE DISETUJUI'));
+  assert.ok(app.has('BABAK 01 TAMAT · BERSAMBUNG'));
+  assert.ok(app.has('THE CITY')); assert.ok(app.has('900')); assert.ok(app.has('18/18'));
   const restored = setup(app.store); restored.click('continue'); assert.ok(restored.has('THE SAFEHOUSE')); assert.deepEqual(restored.save().completed, [0, 1, 2, 3, 4, 5]);
 });
-test('solo terminal and map unlock Riverside after all topics and issue a downloadable scored certificate', () => {
+test('one campaign is shown, and Continue restores an unfinished district cutscene', () => {
   const app = setup();
-  const saved = () => JSON.parse(app.store.get(course.KEY));
-  app.click('courseOpen');
-  app.submit('course-name-form', { name: '<script>' });
-  assert.ok(!app.store.has(course.KEY));
-  app.submit('course-name-form', { name: 'Siti Nur Aisyah' });
-  app.click('map');
-  assert.ok(app.has('Terkunci'));
-  app.click('courseDock');
-  assert.ok(!app.has('TERMINAL DERMAGA'));
-  app.click('courseHub'); app.click('terminal');
-  app.submit('course-answer-form', { answer: '' });
-  assert.equal(saved().wrong, 0);
-  app.click('courseHint'); app.click('courseHint');
-  assert.equal(saved().hinted.length, 1);
-  for (let map = 0; map < 2; map++) {
-    const topics = [];
-    for (let step = 0; step < 3; step++) {
-      const puzzle = course.question(saved());
-      topics.push(puzzle.topic);
-      assert.ok(app.has(puzzle.title));
-      app.submit('course-answer-form', { answer: puzzle.kind === 'list' ? '[17,18]' : puzzle.answers.at(-1) });
-      assert.match(app.modal.innerHTML, /PEMBAHASAN/);
-      app.click('closeModal');
-    }
-    assert.deepEqual(topics, map === 0 ? ['Cipher', 'Invers', 'Komposisi'] : ['Invers', 'Aljabar Fungsi', 'Cipher']);
-    if (map === 0) {
-      assert.ok(app.has('MASUK RIVERSIDE'));
-      assert.ok(!app.has('Unduh sertifikat'));
-      app.click('courseDock'); assert.ok(app.has('TERMINAL DERMAGA')); app.click('terminal');
-    }
-  }
-  assert.ok(app.has('275/300 poin'));
-  assert.ok(app.has('download="sertifikat-cipher-ops-Siti-Nur-Aisyah.svg"'));
-  assert.ok(app.has('Sertifikat Lulus'));
+  assert.ok(app.has('NEW GAME'));
+  assert.ok(!app.has('MISI SOLO'));
+  assert.ok(!app.has('Campaign klasik'));
+  app.start(); app.open(0); app.answerStage(0, 0);
+  assert.ok(app.has(districtScenes[0][0].text));
+  app.click('cutsceneNext');
+  assert.ok(app.has(districtScenes[0][1].text));
   const restored = setup(app.store);
-  restored.click('courseOpen');
-  assert.ok(restored.has('275/300 poin'));
-  assert.ok(restored.has('Siti Nur Aisyah'));
-  assert.ok(!app.store.has(SAVE_KEY));
+  restored.click('continue');
+  assert.ok(restored.has(districtScenes[0][1].text));
+  restored.click('cutsceneNext');
+  assert.ok(restored.has('SECURE ACCESS'));
+  assert.equal(restored.save().pendingScene, undefined);
+  assert.equal(restored.save().records[0].score, 150);
 });
 test('resume survives refresh mid-composition, without skipping the second stage', () => {
-  const app = setup(); app.start(); for (const id of [0, 1]) { app.open(id); app.answerStage(id, 0); }
+  const app = setup(); app.start();
+  for (const id of [0, 1]) {
+    app.open(id); app.answerStage(id, 0);
+    app.click('cutsceneNext'); app.click('cutsceneNext');
+  }
   app.open(2); app.answerStage(2, 0); assert.equal(app.save().active.stage, 1);
   const restored = setup(app.store); restored.click('continue'); assert.ok(restored.has('STAGE 2 / 2')); restored.answerStage(2, 1); assert.ok(restored.save().completed.includes(2));
 });

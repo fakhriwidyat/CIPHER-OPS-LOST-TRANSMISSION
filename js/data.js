@@ -94,12 +94,38 @@
       x: 86, y: 28
     }
   ];
+  const districtScenes = [
+    [
+      { character: 'ARIA', art: 'hub', text: 'Markas baru saja membalas. Mereka bilang koneksi putus sebelum sempat mengirim perintah evakuasi.' },
+      { character: 'ARIA', art: 'terminal', text: 'Tapi ada paket kedua yang ikut masuk. Pengirimnya kosong. Jejaknya berakhir di pintu air Riverside. Coba buka log akses di sana.' }
+    ],
+    [
+      { character: 'ARIA', art: 'riverside', text: 'Aku menemukan perintah isolasi di log dermaga. Ditandatangani dari dalam The Grid, satu detik sebelum kota gelap.' },
+      { character: 'RUNNER', art: 'riverside', text: 'Log ini cuma menyimpan nomor perintah. Salinan aslinya ada di Data Spire. Kita bisa cari siapa yang menandatanganinya.' }
+    ],
+    [
+      { character: 'NULL', art: 'terminal', text: 'Kalian membuka jalur yang sengaja kututup. Sebelum masuk Core, dengarkan rekaman di CABIN. Tanyakan pada Aria kenapa suaranya ada di sana.' },
+      { character: 'ARIA', art: 'hub', text: 'CABIN itu stasiun relai di Old Sector. Sudah bertahun-tahun aku tidak ke sana. Bawa salinan pesannya.' }
+    ],
+    [
+      { character: 'ARIA', art: 'terminal', text: '“Jika kamu mendengar ini, jangan matikan jalur cadangan.” Itu suaraku. Tapi stempel waktunya 27 Oktober, besok pagi.' },
+      { character: 'RUNNER', art: 'terminal', text: 'Di bawah rekaman ada satu alamat lagi. Skyline. Kita cek dari menara mana pesan itu lewat.' }
+    ],
+    [
+      { character: 'ARIA', art: 'city', text: 'Begitu angka yang rusak masuk lagi, Skyline menampilkan pesan utuhnya. Core siap menghapus arsip seluruh kota.' },
+      { character: 'ARIA', art: 'terminal', text: 'Cuma jalur cadangan yang masih hidup. Kirim kode pembuka dari sana. Kalau Core membalas, langsung periksa isi pesannya.' }
+    ],
+    [
+      { character: 'RUNNER', art: 'terminal', text: 'Balasannya terbaca: SAFE. Protokol penghapusan berhenti.' },
+      { character: 'ARIA', art: 'city', text: 'Lampu pelabuhan menyala. Disusul rumah-rumah di tepi kanal. Novaris sudah terhubung lagi. Tunggu… kanal CABIN masih terbuka.' }
+    ]
+  ];
   const intro = [
     { id: 'city', character: 'NOVARIS', label: '26 OKTOBER 2149 · 23:47', text: 'Kota ini tak pernah tidur. Sampai malam ketika semua suaranya menghilang.', art: 'city' },
     { id: 'failure', character: 'EMERGENCY CHANNEL', label: 'THE GRID / CONNECTION LOST', text: 'Enam distrik terputus. Pesan berubah menjadi angka. Dan di suatu tempat, seseorang masih mengirim sinyal.', art: 'city' },
     { id: 'aria', character: 'ARIA', label: 'UNDERGROUND SAFEHOUSE', text: 'Runner, kamu dengar aku? The Grid kehilangan koneksi ke seluruh distrik. Aku butuh seseorang yang bisa membaca apa yang mesin-mesin ini tak pahami.', art: 'hub' },
     { id: 'first-message', character: 'ARIA', label: 'CHANNEL 01 / CONNECTED', text: 'Mulai dari yang kecil. Satu pesan ke markas. Kalau mereka membalas, kita tidak sendirian. Sebelum itu—aku harus memanggilmu siapa?', art: 'hub', callsign: true }
   ];
-  root.Cipher = { math, missions, intro, VERSION: 2, SAVE_KEY: 'cipher-ops-save-v2', SETTINGS_KEY: 'cipher-ops-settings-v2' };
+  root.Cipher = { math, missions, intro, districtScenes, VERSION: 2, SAVE_KEY: 'cipher-ops-save-v2', SETTINGS_KEY: 'cipher-ops-settings-v2' };
   if (typeof module !== 'undefined') module.exports = root.Cipher;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -60,11 +60,10 @@ Seluruh musik, hujan, dengung, dan efek dibuat lokal oleh `js/audio.js`; tidak m
 - **Klik terminal, peta, archive, atau Aria:** Runner mendekat lalu membuka interaksi tersebut.
 - **Ponsel:** tahan tombol D-pad untuk berjalan; ketuk tombol interaksi yang muncul di dekat objek.
 
-Pada **Misi Solo**, dekati **Central Terminal** untuk mengerjakan soal. Pada Campaign Klasik, terminal membuka briefing dengan tombol **Establish Connection**. Karakter Runner dan Aria digambar lokal dengan pose empat arah, animasi langkah, idle, dan portrait baru. Pengaturan Reduce motion mengurangi efek tambahan; gerak yang dikendalikan pemain tetap aktif.
+Pilih **New Game** atau **Continue** untuk bermain Campaign. Dekati **Central Terminal** untuk membuka briefing, lalu pilih **Establish Connection**. Saat pertama kali memulihkan sebuah distrik, cutscene mengungkap petunjuk menuju distrik berikutnya. **Continue** juga melanjutkan cutscene yang belum selesai. Setelah Core pulih, transmisi terakhir menutup babak pertama. Karakter Runner dan Aria memiliki pose empat arah dan animasi langkah. Pengaturan Reduce motion mengurangi efek tambahan.
 
 ## Operasi Dua Peta
 
-- Solo: pilih **Mulai Misi Solo**, isi nama sertifikat, lalu kerjakan tiga soal di **Central Terminal**. Setelah **Central Hub** tuntas, masuk **Riverside** dari **District Map** dan selesaikan tiga soal di **Terminal Dermaga**.
 - Tim: pilih **Main Bareng → Operasi 2 Peta + Sertifikat** ketika membuat room. Tim mengerjakan tiga soal bersama di setiap peta. Host membuka Riverside setelah tim memulihkan pemancar Central Hub.
 - Enam soal mencakup invers, komposisi, aljabar fungsi, dan cipher. Skor maksimal 150 per peta. Jawaban salah bisa diulang, dengan penalti skor. Setelah dua peta tuntas, unduh sertifikat SVG yang memuat nama, tanggal, rincian skor per peta, dan total dari 300 poin. Sertifikat room memakai callsign tiap pemain dan skor tim.
 

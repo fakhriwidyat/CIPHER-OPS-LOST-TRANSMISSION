@@ -3,9 +3,6 @@
   'use strict';
   const MAPS = ['Central Hub', 'Riverside'];
   const TOPICS = ['Cipher', 'Invers', 'Fungsi', 'Nonfungsi'];
-  const KEY = 'cipher-ops-two-maps-v1';
-  const MAX_SCORE = 150;
-  const QUESTION_COUNT = 3;
   const words = ['KODE', 'PETA', 'DATA', 'KUNCI', 'SUARA', 'LAMPU', 'ARSIP', 'JALUR'];
   const indices = word => [...word].map(c => c.charCodeAt(0) - 65);
   const letters = values => values.map(n => String.fromCharCode(65 + (n % 26 + 26) % 26)).join('');
@@ -44,9 +41,6 @@
     ]
   ];
   const topicFor = index => TOPICS[Math.floor(index / 2)];
-  const score = (wrong, hints) => Math.max(0, 100 + (wrong === 0 ? 50 : 0) - 10 * wrong - 25 * hints);
-  const total = state => state.records.reduce((sum, record) => sum + record.score, 0);
-  const validName = value => typeof value === 'string' && /^[\p{L}\p{M}0-9 .,'_-]{1,40}$/u.test(value) && /[\p{L}0-9]/u.test(value);
   const QUESTIONS = [
     [
       {
@@ -88,11 +82,6 @@
       }
     ]
   ];
-  function question(state) {
-    const map = state.records.length;
-    if (map >= MAPS.length) return null;
-    return QUESTIONS[map][state.step];
-  }
   function normalize(puzzle, input) {
     if (typeof input !== 'string') return null;
     const value = input.trim();
@@ -104,34 +93,7 @@
     }
     return /^[+-]?\d{1,8}$/.test(value) ? String(Number(value)) : null;
   }
-  function create(name, seed = Math.floor(Math.random() * 4294967296)) {
-    return { name, seed, step: 0, wrong: 0, hinted: [], records: [], completedAt: null, questionSet: 2 };
-  }
-  function validate(state) {
-    if (!state || !validName(state.name) || !Number.isInteger(state.seed) || state.seed < 0 || state.seed > 0xffffffff ||
-      !Array.isArray(state.records) || state.records.length > MAPS.length || !Number.isInteger(state.step) || state.step < 0 || state.step >= 8 ||
-      !Number.isInteger(state.wrong) || state.wrong < 0 || !Array.isArray(state.hinted) || new Set(state.hinted).size !== state.hinted.length ||
-      !state.hinted.every(i => Number.isInteger(i) && i >= 0 && i <= state.step) ||
-      !state.records.every(r => r && Number.isInteger(r.score) && r.score >= 0 && r.score <= MAX_SCORE)) return null;
-    const finished = state.records.length === MAPS.length;
-    if (finished ? typeof state.completedAt !== 'string' || !Number.isFinite(Date.parse(state.completedAt)) : state.completedAt !== null) return null;
-    // Keep completed maps and certificates. Restart only an unfinished old set.
-    if (state.questionSet !== 2) return { ...state, step: 0, wrong: 0, hinted: [], questionSet: 2 };
-    return state.step < QUESTION_COUNT ? state : null;
-  }
-  function answer(state, input, now = new Date()) {
-    const puzzle = question(state);
-    if (!puzzle) return 'finished';
-    const value = normalize(puzzle, input);
-    if (value === null) return 'invalid';
-    if (!puzzle.answers.includes(value)) { state.wrong++; return 'wrong'; }
-    if (++state.step < QUESTION_COUNT) return 'correct';
-    state.records.push({ score: score(state.wrong, state.hinted.length) });
-    state.step = 0; state.wrong = 0; state.hinted = [];
-    if (state.records.length === MAPS.length) state.completedAt = now.toISOString();
-    return 'map-complete';
-  }
-  const api = { MAPS, TOPICS, KEY, MAX_SCORE, QUESTION_COUNT, BANKS, QUESTIONS, topicFor, create, question, normalize, validate, score, total, answer };
+  const api = { MAPS, BANKS, QUESTIONS, topicFor, normalize };
   root.CipherCourse = api;
   if (typeof module !== 'undefined') module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
