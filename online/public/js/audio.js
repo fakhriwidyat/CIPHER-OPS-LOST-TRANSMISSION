@@ -17,7 +17,9 @@
     transmission: { music: .2, label: 'UPLINK / TRANSMITTING' },
     handoff: { music: .35, label: 'TEAM / RECEIVER HANDOFF' },
     coopResult: { music: .75, label: 'TEAM / SIGNAL RECEIVED' },
-    ending: { music: 1, label: 'NOVARIS / A VOICE AGAIN' }
+    ending: { music: 1, label: 'NOVARIS / A VOICE AGAIN' },
+    finale: { music: .16, label: 'CORE / CABIN TRANSMISSION' },
+    finaleBlackout: { music: 0, label: 'CORE / SIGNAL LOST' }
   };
   function normalize(input = {}) {
     const result = { sound: typeof input.sound === 'boolean' ? input.sound : DEFAULTS.sound };
@@ -38,7 +40,8 @@
     error: [[220, .14, 0, .065], [164.81, .19, .12, .065]],
     failure: [[220, .24, 0, .065], [174.61, .27, .2, .06], [146.83, .5, .43, .065]],
     transmission: [[1174.66, .045, .04, .035], [1567.98, .05, .16, .03], [1760, .045, .28, .03], [1174.66, .07, .42, .035]],
-    ending: [[146.83, 1.8, 0, .06], [174.61, 1.7, .08, .05], [220, 1.7, .16, .05], [293.66, 1.6, .3, .065], [440, 1.8, .55, .06], [587.33, 2.1, .9, .055]]
+    ending: [[146.83, 1.8, 0, .06], [174.61, 1.7, .08, .05], [220, 1.7, .16, .05], [293.66, 1.6, .3, .065], [440, 1.8, .55, .06], [587.33, 2.1, .9, .055]],
+    signalCut: [[110, .11, 0, .09]]
   };
   function createEngine(options = {}) {
     const createContext = options.createContext || (() => { const Constructor = root.AudioContext || root.webkitAudioContext; return Constructor ? new Constructor() : null; });
@@ -192,7 +195,7 @@
     function setScene(value) {
       if (scene === value) return;
       scene = PROFILES[value] ? value : 'menu'; lastPosition = null; stepDistance = 0;
-      if (context) mix(); announce();
+      if (context) mix(scene === 'finaleBlackout'); announce();
     }
     function play(kind = 'click') {
       if (!config.sound || !visible || !context || !unlocked || context.state === 'closed') return false;
@@ -208,6 +211,7 @@
       if (kind === 'radio' || kind === 'archive') noise(.12, now, .065, 1400, 'bandpass', -.12);
       if (kind === 'transmission') noise(.55, now, .055, 650, 'bandpass', .12, 2600);
       if (kind === 'error' || kind === 'failure') noise(.12, now, .055, 760, 'lowpass');
+      if (kind === 'signalCut') noise(.2, now, .14, 1600, 'bandpass');
       return true;
     }
     function movement(pose) {

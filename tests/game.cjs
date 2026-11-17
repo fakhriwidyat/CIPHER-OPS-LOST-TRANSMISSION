@@ -80,10 +80,27 @@ test('all six missions require all stages, finish the campaign, and restore save
     }
   }
   assert.equal(Object.values(app.save().records).reduce((s, r) => s + r.score, 0), 900);
-  assert.ok(app.has('AKSES RUANG BAWAH CORE DISETUJUI'));
-  assert.ok(app.has('BABAK 01 TAMAT · BERSAMBUNG'));
-  assert.ok(app.has('THE CITY')); assert.ok(app.has('900')); assert.ok(app.has('18/18'));
-  const restored = setup(app.store); restored.click('continue'); assert.ok(restored.has('THE SAFEHOUSE')); assert.deepEqual(restored.save().completed, [0, 1, 2, 3, 4, 5]);
+  assert.ok(app.has('NOVARIS / 26 OKT 2149'));
+  app.click('finaleNext');
+  assert.ok(app.has('SUARA ARIA · RADIO'));
+  const resumed = setup(app.store);
+  resumed.click('continue');
+  assert.ok(resumed.has('SUARA ARIA · RADIO'));
+  resumed.click('finaleNext');
+  assert.ok(resumed.has('Akses disetujui untuk TEST_RUNNER.'));
+  resumed.click('finaleNext');
+  assert.ok(resumed.has('SAMBUNGAN TERPUTUS'));
+  assert.ok(resumed.has('Jangan percaya orang yang berdiri di sebelahmu.'));
+  assert.equal(resumed.save().flags.endingSeen, false);
+  resumed.click('finaleNext');
+  assert.ok(resumed.has('BABAK 01 TAMAT · BERSAMBUNG'));
+  assert.ok(resumed.has('900')); assert.ok(resumed.has('18/18'));
+  assert.equal(resumed.save().finaleShot, undefined);
+  assert.equal(resumed.save().flags.endingSeen, true);
+  const restored = setup(resumed.store);
+  restored.click('continue'); assert.ok(restored.has('THE SAFEHOUSE'));
+  assert.deepEqual(restored.save().completed, [0, 1, 2, 3, 4, 5]);
+  restored.click('terminal'); assert.ok(restored.has('NOVARIS / 26 OKT 2149'));
 });
 test('one campaign is shown, and Continue restores an unfinished district cutscene', () => {
   const app = setup();

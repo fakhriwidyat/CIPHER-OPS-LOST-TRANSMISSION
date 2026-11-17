@@ -126,6 +126,27 @@
     { id: 'aria', character: 'ARIA', label: 'UNDERGROUND SAFEHOUSE', text: 'Runner, kamu dengar aku? The Grid kehilangan koneksi ke seluruh distrik. Aku butuh seseorang yang bisa membaca apa yang mesin-mesin ini tak pahami.', art: 'hub' },
     { id: 'first-message', character: 'ARIA', label: 'CHANNEL 01 / CONNECTED', text: 'Mulai dari yang kecil. Satu pesan ke markas. Kalau mereka membalas, kita tidak sendirian. Sebelum itu—aku harus memanggilmu siapa?', art: 'hub', callsign: true }
   ];
-  root.Cipher = { math, missions, intro, districtScenes, VERSION: 2, SAVE_KEY: 'cipher-ops-save-v2', SETTINGS_KEY: 'cipher-ops-settings-v2' };
+  const finaleShots = [
+    {
+      art: 'finale-city', cue: 'ending', location: 'NOVARIS / 26 OKT 2149 · 23:58',
+      speaker: 'ARIA', caption: 'Lihat lampu di tepi kanal. Satu per satu… Novaris sudah terhubung lagi.'
+    },
+    {
+      art: 'finale-radio', cue: 'radio', location: 'RADIO CORE / KANAL CABIN · 27 OKT 2149 · 06:12',
+      speaker: 'SUARA ARIA · RADIO', caption: 'Runner, kalau kamu dengar ini, jangan buka pintu di bawah Core. Aku masih di dalam.',
+      detail: 'Aria berdiri di sampingmu. Tangannya belum menyentuh mikrofon.'
+    },
+    {
+      art: 'finale-camera', cue: 'transmission', location: 'KAMERA CORE / LANTAI −01',
+      speaker: 'TERMINAL', caption: 'Pintu dibuka dari dalam. Akses disetujui untuk {callsign}.',
+      detail: 'Di monitor, seseorang dengan pakaian dan wajahmu melangkah keluar dari balik pintu.'
+    },
+    {
+      art: 'finale-black', cue: 'signalCut', location: 'SAMBUNGAN TERPUTUS',
+      speaker: 'SUARA RUNNER · RADIO', caption: 'Aria? Jangan percaya orang yang berdiri di sebelahmu.',
+      detail: 'BABAK 01 TAMAT · BERSAMBUNG'
+    }
+  ];
+  root.Cipher = { math, missions, intro, districtScenes, finaleShots, VERSION: 2, SAVE_KEY: 'cipher-ops-save-v2', SETTINGS_KEY: 'cipher-ops-settings-v2' };
   if (typeof module !== 'undefined') module.exports = root.Cipher;
 })(typeof window !== 'undefined' ? window : globalThis);

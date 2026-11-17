@@ -4,6 +4,7 @@
   const W = 960, H = 540;
   const P = { sky: '#0b1020', far: '#142039', mid: '#1b2c46', ink: '#0b1324', cyan: '#70e5eb', blue: '#31506e', pink: '#d77ca2', amber: '#ffbf69', green: '#6effa8' };
   let canvas, ctx, frame = 0, raf = 0, mode = 'city', reduced = false, restored = 0, interactive = false;
+  let shotStart = 0;
   let actor = { x: 476, y: 446, direction: 'down', moving: false, time: 0, scale: 1.85 };
   let callsign = 'RUNNER';
   let base = document.createElement('canvas'); base.width = W; base.height = H;
@@ -199,10 +200,95 @@
     r(777, 384, 62, 54, '#354b55'); r(777, 384, 62, 5, '#76908c'); r(787, 398, 42, 22, '#243844');
     text('RIVERSIDE / QUAI 02', 104, 397, '#a4b9ba', 10);
   }
-  function redraw() { seed = 2149; c.clearRect(0, 0, W, H); ({ city, hub, map, terminal, riverside, ending: city }[mode] || city)(); }
-  function animate() {
+  function finaleRadio() {
+    r(0, 0, W, H, '#0b1724');
+    r(0, 0, W, 132, '#101f30');
+    for (let x = 44; x < W; x += 110) {
+      r(x, 0, 2, 342, '#25394a');
+      r(x + 5, 140, 96, 6, '#172939');
+    }
+    glow(534, 267, 230, '#42879442');
+    CharacterArt.draw(c, 'aria', { x: 364, y: 449, scale: 7, direction: 'right', reduced: true });
+    r(373, 343, 463, 136, '#1a2935');
+    r(362, 339, 490, 9, '#536673');
+    r(362, 348, 490, 6, '#0b1420');
+    r(454, 228, 198, 108, '#465767');
+    r(462, 236, 182, 94, '#1a2631');
+    r(472, 247, 160, 46, '#0c2f36');
+    r(472, 250, 160, 2, '#77baab');
+    text('CABIN', 481, 273, '#b3f4db', 16);
+    r(483, 308, 18, 7, '#617782');
+    r(508, 308, 18, 7, '#617782');
+    r(602, 301, 18, 18, '#71848e');
+    r(606, 305, 10, 10, '#253845');
+    line([[642, 311], [678, 311], [693, 326], [728, 326]], '#0a1320', 4);
+    r(713, 306, 36, 15, '#455969');
+    for (let x = 719; x < 743; x += 4) r(x, 310, 2, 7, '#0e1b29');
+  }
+  function finaleCamera() {
+    r(0, 0, W, H, '#080d14');
+    r(112, 16, 736, 501, '#354855');
+    r(123, 28, 714, 477, '#151f29');
+    r(147, 49, 666, 420, '#10221f');
+    r(151, 52, 658, 415, '#243330');
+    r(151, 346, 658, 121, '#192825');
+    line([[153, 439], [421, 344], [539, 344], [807, 439]], '#465950', 2);
+    for (let y = 367; y < 467; y += 21) r(153, y, 654, 1, '#344842');
+    r(370, 110, 220, 240, '#384d47');
+    r(385, 123, 190, 224, '#080f10');
+    r(446, 162, 68, 5, '#354b3b');
+    r(402, 277, 7, 67, '#1d342a');
+    r(550, 277, 7, 67, '#1d342a');
+    text('REC / CORE -01', 172, 81, '#a8c9ad', 14);
+    r(168, 491, 40, 3, '#507071');
+    r(787, 486, 6, 6, '#94d4ac');
+  }
+  function paintFinale(elapsed) {
+    if (mode === 'finale-city') {
+      const reveal = Math.min(1, elapsed / 2.6);
+      const zoom = 1 + reveal * .045;
+      ctx.drawImage(base, -W * (zoom - 1) / 2, -H * (zoom - 1) / 2, W * zoom, H * zoom);
+      const width = W / 5;
+      for (let i = 0; i < 5; i++) {
+        const lights = Math.max(0, Math.min(1, (reveal * 1.5 - i * .16) * 2));
+        ctx.fillStyle = `rgba(1,8,22,${.68 * (1 - lights)})`;
+        ctx.fillRect(i * width, 0, width, H);
+      }
+    } else if (mode === 'finale-radio') {
+      ctx.fillStyle = '#b3f4db';
+      for (let i = 0; i < 15; i++) {
+        const level = 2 + Math.round(Math.abs(Math.sin(i * .86 + elapsed * 8)) * 12);
+        ctx.fillRect(558 + i * 4, 273 - level / 2, 2, level);
+      }
+    } else if (mode === 'finale-camera') {
+      const opening = Math.max(0, Math.min(1, (elapsed - .28) / 1.15));
+      const steps = Math.max(0, Math.min(1, (elapsed - 1.03) / 1.65));
+      if (opening > .16) CharacterArt.draw(ctx, 'runner', { x: 480, y: 339 + steps * 58, scale: 2.1 + steps * 2.4, direction: 'down', moving: steps > 0 && steps < 1 && !reduced, time: elapsed, reduced });
+      const gap = Math.round(95 * opening);
+      ctx.fillStyle = '#334743';
+      ctx.fillRect(385, 123, 95 - gap, 224);
+      ctx.fillRect(480 + gap, 123, 95 - gap, 224);
+      ctx.fillStyle = '#718e7f';
+      ctx.fillRect(477 - gap, 123, 3, 224);
+      ctx.fillRect(480 + gap, 123, 3, 224);
+      ctx.fillStyle = '#c48973';
+      ctx.fillRect(530, 116, 9, 4);
+    }
+  }
+  function redraw() {
+    seed = 2149; c.clearRect(0, 0, W, H);
+    const backdrops = { city, hub, map, terminal, riverside, ending: city, 'finale-city': city, 'finale-radio': finaleRadio, 'finale-camera': finaleCamera };
+    (backdrops[mode] || city)();
+  }
+  function animate(now = performance.now()) {
     if (!canvas || !canvas.isConnected) return;
     ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, W, H); ctx.drawImage(base, 0, 0);
+    if (mode.startsWith('finale-')) {
+      const elapsed = reduced ? 3 : Math.min(3, (now - shotStart) / 1000);
+      paintFinale(elapsed);
+      if (elapsed < 3) raf = requestAnimationFrame(animate);
+      return;
+    }
     if (mode === 'hub' || mode === 'riverside') people(ctx, reduced ? 0 : actor.visualTime ?? frame / 60, interactive);
     if ((mode === 'city' || mode === 'ending') && !reduced) {
       ctx.strokeStyle = '#91b5c125'; ctx.lineWidth = 1;
@@ -220,7 +306,8 @@
     const fillRoom = !!canvas.closest('.hub-scene');
     actor = { x: 476, y: 446, direction: 'down', moving: false, time: 0, scale: fillRoom ? (width < 600 ? 70 : 110) / (48 * verticalScale) : 1.85, aspect: fillRoom ? verticalScale / (width / W) : 1, ...options.actor };
     callsign = options.callsign || 'RUNNER';
-    redraw(); animate();
+    shotStart = performance.now();
+    redraw(); animate(shotStart);
   }
   function portrait(type = 'aria') {
     return CharacterArt.portrait(type, (width, height) => { const sheet = document.createElement('canvas'); sheet.width = width; sheet.height = height; return sheet; });

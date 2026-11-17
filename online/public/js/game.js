@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  const { math, missions, intro, districtScenes, VERSION, SAVE_KEY, SETTINGS_KEY } = window.Cipher;
+  const { math, missions, intro, districtScenes, finaleShots, VERSION, SAVE_KEY, SETTINGS_KEY } = window.Cipher;
   const game = document.querySelector('#game');
   const modal = document.querySelector('#modal');
   const toastElement = document.querySelector('#toast');
@@ -61,6 +61,9 @@
     if (pending && complete.includes(pending.mission) && Number.isInteger(pending.line) && districtScenes[pending.mission][pending.line]) {
       campaign.pendingScene = { mission: pending.mission, line: pending.line };
     }
+    if (complete.length === missions.length && Number.isInteger(saved.finaleShot) && finaleShots[saved.finaleShot]) {
+      campaign.finaleShot = saved.finaleShot;
+    }
   }
   function persist() { if (campaign) storageWrite(SAVE_KEY, campaign); }
   function syncRun() { if (campaign && run && !run.coop) { campaign.active = run.health > 0 && !run.done ? { ...run } : null; persist(); } }
@@ -106,11 +109,10 @@
     if (hubController) { hubPosition = hubController.position(); hubController.destroy(); hubController = null; }
     clearTimeout(sceneTimer); screen = next;
     if (next !== 'dialogue') dialogueState = null;
-    const renderers = { online: () => window.CipherRooms?.mount({ game, scene, mount, sound, callsign: campaign?.callsign, confirm: confirmModal, exit: () => navigate('menu') }), menu: menu, intro: renderIntro, hub, map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, ending, dialogue: renderDialogue, cutscene: renderCutscene };
+    const renderers = { online: () => window.CipherRooms?.mount({ game, scene, mount, sound, callsign: campaign?.callsign, confirm: confirmModal, exit: () => navigate('menu') }), menu: menu, intro: renderIntro, hub, map: districtMap, briefing, puzzle: puzzle, result, failed, archive, coopSetup, handoff, transmission, coopResult, finale: renderFinale, ending, dialogue: renderDialogue, cutscene: renderCutscene };
     (renderers[next] || menu)(options);
-    window.CipherAudio?.setScene(screen === 'cutscene' || screen === 'intro' && currentArt === 'hub' ? 'dialogue' : screen);
+    if (screen !== 'finale') window.CipherAudio?.setScene(screen === 'cutscene' || screen === 'intro' && currentArt === 'hub' ? 'dialogue' : screen);
     if (next === 'transmission') sound('transmission');
-    if (next === 'ending') sound('ending');
     if (next === 'dialogue' || next === 'intro' && intro[introIndex]?.character === 'ARIA') sound('radio');
     if (!options.noFocus) game.focus({ preventScroll: true });
   }
@@ -179,7 +181,7 @@
     }
     delete campaign.pendingScene;
     persist();
-    if (pending.mission === missions.length - 1) return navigate('ending');
+    if (pending.mission === missions.length - 1) return startFinale();
     if (run?.done && !run.coop && run.mission === pending.mission) return navigate('result');
     selectMission(pending.mission + 1);
   }
@@ -408,10 +410,52 @@
     const final = coop.round === coopRounds.length - 1;
     game.innerHTML = scene(`<div class="result-wrap"><div class="result-icon">${icons.check}</div><p class="eyebrow text-green">SENDER + RECEIVER / CONNECTION VERIFIED</p><h1>${final ? 'TEAM CHANNEL RESTORED' : 'TRANSMISSION RECEIVED'}</h1><p class="mission-name">${escapeHTML(coop.p1)} ↔ ${escapeHTML(coop.p2)}</p><div class="stars" aria-label="${math.stars(run.errors, run.hints)} bintang">${'★'.repeat(math.stars(run.errors, run.hints))}</div><div class="result-stats"><div><b>${coop.total}</b><span>TEAM TOTAL</span></div><div><b>${score()}</b><span>ROUND POINTS</span></div><div><b>${run.health}/3</b><span>SHARED HEARTS</span></div><div><b>${coop.round + 1}/3</b><span>ROUNDS</span></div></div><p class="result-story">Pesan “${coopRounds[coop.round].plain}” sampai dengan utuh. Dua kepala, satu frekuensi. ${final ? 'Seluruh jalur tim sudah pulih.' : 'Jalur berikutnya menunggu.'}</p><div class="math-explanation"><strong>SHARED SOLUTION</strong>${math.format(coop.cipher)} → gunakan E⁻¹(x) = (x − ${coopRounds[coop.round].fn.b}) / ${coopRounds[coop.round].fn.a} → ${coopRounds[coop.round].plain}.</div><div class="result-actions">${action(final ? 'finishCoop' : 'nextCoop', (final ? 'KEMBALI KE MAIN MENU' : 'NEXT ROUND') + icons.arrow, 'button primary')}</div><p class="rating-note">+100 selesai · +50 tanpa kesalahan · −10 per kesalahan · −25 per hint.<br>Campaign solo tetap tersimpan terpisah.</p></div>`, 'result-scene'); mount('city');
   }
+  function startFinale() {
+    if (campaign?.completed.length !== missions.length) return;
+    campaign.finaleShot = 0;
+    persist();
+    navigate('finale');
+  }
+  function renderFinale() {
+    const shot = finaleShots[campaign?.finaleShot];
+    if (!shot) return navigate('hub');
+    const blackout = shot.art === 'finale-black';
+    const caption = escapeHTML(shot.caption.replace('{callsign}', () => campaign.callsign));
+    game.innerHTML = scene(`
+      <div class="finale-picture"><p class="finale-location">${escapeHTML(shot.location)}</p></div>
+      <div class="finale-dialogue">
+        <div class="finale-caption">
+          <p class="eyebrow">${escapeHTML(shot.speaker)}</p>
+          <p class="finale-line">${caption}</p>
+          ${shot.detail ? `<p class="finale-detail">${escapeHTML(shot.detail)}</p>` : ''}
+        </div>
+        ${action('finaleNext', (blackout ? 'LIHAT HASIL' : 'LANJUTKAN') + ' ' + icons.arrow, 'button ghost')}
+      </div>`, blackout ? 'finale-scene finale-blackout' : 'finale-scene');
+    if (!blackout) mount(shot.art);
+    window.CipherAudio?.setScene(blackout ? 'finaleBlackout' : 'finale');
+    sound(shot.cue);
+  }
+  function advanceFinale() {
+    if (screen !== 'finale') return;
+    if (campaign.finaleShot + 1 < finaleShots.length) {
+      campaign.finaleShot++;
+      persist();
+      navigate('finale');
+      return;
+    }
+    delete campaign.finaleShot;
+    campaign.flags.endingSeen = true;
+    persist();
+    navigate('ending');
+  }
   function ending() {
-    if (!campaign || campaign.completed.length < 6) return navigate('hub');
-    campaign.flags.endingSeen = true; persist();
-    game.innerHTML = scene(`<div class="menu-vignette"></div><div class="ending-wrap"><p class="eyebrow text-green"><span class="dot" style="background:var(--green)"></span>THE GRID / ALL SYSTEMS ONLINE</p><h1>THE CITY<br>HAS A VOICE AGAIN.</h1><p>“Kamu dengar itu, ${escapeHTML(campaign.callsign)}? Itu suara Novaris.”<br>Aria tersenyum. Untuk pertama kalinya malam ini, tak ada gangguan di antara kata-katanya.</p><div class="ending-stats"><div><b>${totalScore()}</b>CAMPAIGN SCORE</div><div><b>6/6</b>DISTRICTS</div><div><b>${totalStars()}/18</b>STARS</div></div><div class="ending-null"><p>TRANSMISI CABIN / 27 OKTOBER 2149 · 06:12</p><p>Suara di radio terdengar persis seperti Aria. “Kalau kamu dengar ini, jangan turun ke ruang di bawah Core. Aku masih di dalam.”</p><p>Aria, di sampingmu, meraih mikrofon. Sebelum sempat bicara, terminal berbunyi.</p><p><strong>AKSES RUANG BAWAH CORE DISETUJUI / ${escapeHTML(campaign.callsign)}</strong></p><p>BABAK 01 TAMAT · BERSAMBUNG</p></div><div class="ending-actions">${action('hub', 'REVISIT SAFEHOUSE ' + icons.arrow, 'button primary')}${action('new', 'NEW CAMPAIGN', 'button ghost')}</div></div>`, 'menu-scene campaign-ending'); mount('ending');
+    if (campaign?.completed.length !== missions.length) return navigate('hub');
+    game.innerHTML = scene(`<div class="menu-vignette"></div><div class="ending-wrap">
+      <p class="eyebrow text-green">BABAK 01 TAMAT · BERSAMBUNG</p>
+      <h1>THE CITY<br>HAS A VOICE AGAIN.</h1>
+      <div class="ending-stats"><div><b>${totalScore()}</b>CAMPAIGN SCORE</div><div><b>6/6</b>DISTRICTS</div><div><b>${totalStars()}/18</b>STARS</div></div>
+      <div class="ending-actions">${action('hub', 'KEMBALI KE SAFEHOUSE ' + icons.arrow, 'button primary')}${action('ending', 'PUTAR ULANG ENDING', 'button ghost')}${action('new', 'NEW CAMPAIGN', 'button ghost')}</div>
+      </div>`, 'menu-scene campaign-ending'); mount('ending');
   }
   function openModal(title, content) {
     hubController?.pause();
@@ -435,15 +479,17 @@
       if (!campaign) return;
       coop = null; run = null;
       if (campaign.pendingScene) return navigate('cutscene');
+      if (Number.isInteger(campaign.finaleShot)) return navigate('finale');
       if (campaign.active) return resume();
-      if (campaign.completed.length === missions.length && !campaign.flags.endingSeen) return navigate('ending');
+      if (campaign.completed.length === missions.length && !campaign.flags.endingSeen) return startFinale();
       navigate('hub');
     },
     cutsceneNext: advanceCutscene,
+    finaleNext: advanceFinale,
     introNext: () => { introIndex = Math.min(introIndex + 1, intro.length - 1); navigate('intro'); },
     skipIntro: () => { introIndex = intro.length - 1; navigate('intro'); }, hub: () => navigate('hub'), map: () => navigate('map'),
     terminal: () => {
-      if (campaign.completed.length === missions.length && !campaign.active) return navigate('ending');
+      if (campaign.completed.length === missions.length && !campaign.active) return startFinale();
       selectedMission = campaign.active?.mission ?? nextMission(); navigate('briefing');
     }, hubInteract: () => hubController?.interact(),
     mission: el => selectMission(Number(el.dataset.id)), startMission: () => beginMission(), resume,
@@ -458,7 +504,7 @@
     coopSetup: () => navigate('coopSetup'), leaveCoop,
     receiverReady: () => { if (!coop || screen !== 'handoff') return; coop.role = 'receiver'; navigate('puzzle'); },
     nextCoop: () => { if (!coop || !run.done || coop.round >= 2) return; coop.round++; resetCoopRound(); },
-    finishCoop: () => { coop = null; run = null; navigate('menu'); }, ending: () => navigate('ending')
+    finishCoop: () => { coop = null; run = null; navigate('menu'); }, ending: startFinale
   };
   document.addEventListener('click', event => {
     window.CipherAudio?.unlock();
@@ -468,7 +514,7 @@
     const handler = handlers[button.dataset.action]; if (!handler) return;
     if (screen === 'hub' && hubController && button.classList?.contains?.('hotspot')) { hubController.approach(button.dataset.action); return; }
     const sounds = { new: 'confirm', continue: 'confirm', startMission: 'terminal', resume: 'terminal', map: 'map', archive: 'archive', aria: 'radio', hint: 'hint', retry: 'confirm', receiverReady: 'confirm', nextCoop: 'confirm' };
-    if (!['sound', 'audioPreview', 'hubInteract', 'ending'].includes(button.dataset.action)) sound(sounds[button.dataset.action] || 'click'); handler(button);
+    if (!['sound', 'audioPreview', 'hubInteract', 'ending', 'finaleNext'].includes(button.dataset.action)) sound(sounds[button.dataset.action] || 'click'); handler(button);
   });
   document.addEventListener('submit', event => {
     event.preventDefault();
@@ -485,7 +531,10 @@
   });
   document.addEventListener('change', event => {
     if (event.target.id === 'setting-sound') settings.sound = event.target.checked;
-    else if (event.target.id === 'setting-motion') { settings.reducedMotion = event.target.checked; mount(currentArt); }
+    else if (event.target.id === 'setting-motion') {
+      settings.reducedMotion = event.target.checked;
+      if (screen !== 'finale' || finaleShots[campaign?.finaleShot]?.art !== 'finale-black') mount(currentArt);
+    }
     else return;
     storageWrite(SETTINGS_KEY, settings); settingsUI(); if (event.target.id === 'setting-sound') sound();
   });

@@ -2155,12 +2155,65 @@ dialog::backdrop {
   flex-wrap: wrap
 }
 
-.ending-null {
-  margin-top: 28px;
-  font: 10px var(--mono);
-  line-height: 1.9;
-  color: #b59bc5;
-  max-width: 430px
+.finale-scene {
+  --finale-frame-height: clamp(290px, 46vw, 550px);
+  min-height: 0;
+  background: #070b12;
+  animation: none
+}
+
+.finale-scene .scene-canvas {
+  top: 20px;
+  bottom: auto;
+  height: var(--finale-frame-height)
+}
+
+.finale-picture {
+  position: relative;
+  height: var(--finale-frame-height);
+  margin-top: 20px;
+  background: linear-gradient(180deg, #070b12a6 0, transparent 34%, transparent 85%, #070b1290);
+  border-bottom: 1px solid #283b49
+}
+
+.finale-location {
+  position: absolute;
+  top: 15px;
+  left: clamp(16px, 4vw, 42px);
+  right: clamp(16px, 4vw, 42px);
+  font: 11px/1.5 var(--mono);
+  letter-spacing: .12em;
+  color: #d5e8ed
+}
+
+.finale-dialogue {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  padding: clamp(22px, 4vw, 44px)
+}
+
+.finale-caption { max-width: 64ch }
+.finale-caption .eyebrow { color: #8ab9b9 }
+.finale-line { margin-top: 10px; font-size: clamp(17px, 2.2vw, 22px); line-height: 1.55; color: #e7eff0 }
+.finale-detail { margin-top: 9px; font-size: 13px; line-height: 1.55; color: #9aafb8 }
+.finale-dialogue .button { flex-shrink: 0 }
+
+.finale-blackout { background: #030408 }
+.finale-blackout .scene-canvas { display: none }
+.finale-blackout .finale-picture { background: none }
+.finale-blackout .finale-location {
+  top: 48%;
+  color: #82909d;
+  text-align: center
+}
+
+.finale-blackout .finale-detail { color: #bfa1d1 }
+
+@media (max-width: 620px) {
+  .finale-dialogue { flex-direction: column; align-items: stretch }
+  .finale-dialogue .button { align-self: flex-end }
 }
 
 .menu-scene.campaign-ending {
@@ -2176,15 +2229,6 @@ dialog::backdrop {
   padding: clamp(44px, 7vw, 96px) 0 42px
 }
 
-.campaign-ending .ending-null {
-  font-size: 12px;
-  margin: 22px 0;
-  background: #101a2cee;
-  border-inline-start: 2px solid #b59bc5;
-  padding: 12px 16px
-}
-
-.campaign-ending .ending-null p + p { margin-top: 9px }
 
 .toast {
   position: fixed;
@@ -2676,10 +2720,6 @@ dialog::backdrop {
     font-size: 14px;
     max-width: 380px
   }
-  .ending-null {
-    font-size: 9px;
-    max-width: 360px
-  }
   .ending-stats {
     gap: 25px
   }
@@ -3094,11 +3134,6 @@ dialog::backdrop {
     flex-direction: column;
     align-items: stretch;
     max-width: 270px
-  }
-  .ending-null {
-    font-size: 8px;
-    line-height: 1.9;
-    margin-top: 24px
   }
 }
 
